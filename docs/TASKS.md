@@ -33,9 +33,9 @@
 
 ## Epic 4 — SD-WAN 组网与动态路由
 - [ ] T4.1 Overlay 隧道编排（WireGuard/IPIP/EoIP/GRE 按能力）
-- [ ] T4.2 静态路由 + OSPF 编排
-- [ ] T4.3 BGP（eBGP/iBGP）+ 双 POP + Route Reflector + BFD
-- [ ] T4.4 路由策略：过滤/发布/汇总/重分发 + 防泄漏（VRF/community）
+- [~] T4.2 静态路由 + OSPF 编排（routing.Intent 模型 + BuildState 生成 /ip/route、/routing/ospf 语句）
+- [x] T4.3 BGP（eBGP/iBGP 自动分类）+ Route Reflector client + BFD + 双 POP 邻居建模与语句生成
+- [x] T4.4 路由策略：汇总（aggregate）+ 重分发建模 + 防泄漏校验（VRF/community 必填、eBGP 强制 import/export 过滤、重分发强制过滤、iBGP 全互联告警）
 
 ## Epic 5 — SNMP 原生引擎
 - [ ] T5.1 gosnmp 引擎（v2c/v3）+ 凭据管理
