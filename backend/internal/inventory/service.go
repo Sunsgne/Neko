@@ -9,11 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/store"
 )
 
 // ErrInvalidInput indicates a validation failure.
 var ErrInvalidInput = errors.New("invalid input")
+
+// ErrTransitionNotAllowed indicates an illegal trust-state change.
+var ErrTransitionNotAllowed = errors.New("trust transition not allowed")
 
 // IDFunc generates unique identifiers.
 type IDFunc func() string
@@ -23,14 +27,16 @@ type NowFunc func() time.Time
 
 // Service contains device inventory business logic.
 type Service struct {
-	repo store.DeviceRepository
-	id   IDFunc
-	now  NowFunc
+	repo      store.DeviceRepository
+	collector routeros.Collector
+	id        IDFunc
+	now       NowFunc
 }
 
-// NewService builds an inventory service.
-func NewService(repo store.DeviceRepository, id IDFunc, now NowFunc) *Service {
-	return &Service{repo: repo, id: id, now: now}
+// NewService builds an inventory service. The collector may be nil; in that
+// case capability detection is unavailable until one is configured.
+func NewService(repo store.DeviceRepository, collector routeros.Collector, id IDFunc, now NowFunc) *Service {
+	return &Service{repo: repo, collector: collector, id: id, now: now}
 }
 
 // RegisterInput is the payload for registering a device for onboarding.
@@ -84,6 +90,60 @@ func (s *Service) Get(ctx context.Context, tenantID, id string) (*store.Device, 
 // List returns a page of devices within tenant scope.
 func (s *Service) List(ctx context.Context, tenantID string, page store.Page) ([]*store.Device, int, error) {
 	return s.repo.List(ctx, tenantID, page)
+}
+
+// Detect contacts the device, identifies its model/platform/capabilities, and
+// advances its trust state from discovered to authenticated. Per requirement
+// #5, capabilities are detected (model, version, architecture, packages,
+// license, device-mode, interface capabilities) rather than assumed.
+func (s *Service) Detect(ctx context.Context, tenantID, id string) (*store.Device, error) {
+	if s.collector == nil {
+		return nil, fmt.Errorf("%w: no collector configured", ErrInvalidInput)
+	}
+	d, err := s.repo.Get(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	facts, err := s.collector.Collect(ctx, routeros.Target{Address: d.MgmtAddress})
+	if err != nil {
+		return nil, err
+	}
+	det := routeros.Detect(*facts)
+	caps := det.Capabilities
+	d.Platform = det.Platform
+	d.Model = det.Model
+	if det.Serial != "" {
+		d.Serial = det.Serial
+	}
+	d.Capabilities = &caps
+	if CanTransition(d.TrustState, store.TrustAuthenticated) {
+		d.TrustState = store.TrustAuthenticated
+	}
+	now := s.now()
+	d.LastSeenAt = &now
+	d.UpdatedAt = now
+	if err := s.repo.Update(ctx, d); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// SetTrustState transitions a device to the requested trust state, enforcing
+// the lifecycle state machine.
+func (s *Service) SetTrustState(ctx context.Context, tenantID, id string, to store.TrustState) (*store.Device, error) {
+	d, err := s.repo.Get(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	if !CanTransition(d.TrustState, to) {
+		return nil, fmt.Errorf("%w: %s -> %s", ErrTransitionNotAllowed, d.TrustState, to)
+	}
+	d.TrustState = to
+	d.UpdatedAt = s.now()
+	if err := s.repo.Update(ctx, d); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 func validHostname(h string) bool {

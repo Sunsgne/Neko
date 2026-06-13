@@ -36,7 +36,9 @@ func main() {
 
 	now := func() time.Time { return time.Now().UTC() }
 	tenantSvc := tenant.NewService(st.Tenants(), func() string { return idgen.New("ten") }, now)
-	inventorySvc := inventory.NewService(st.Devices(), func() string { return idgen.New("dev") }, now)
+	// Collector is nil in bootstrap; a RouterOS REST collector is wired in
+	// once device credentials/connectivity land (Epic 2 follow-up).
+	inventorySvc := inventory.NewService(st.Devices(), nil, func() string { return idgen.New("dev") }, now)
 
 	srv := httpapi.New(httpapi.Deps{
 		Logger:    logger,

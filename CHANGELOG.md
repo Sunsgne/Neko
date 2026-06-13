@@ -12,3 +12,4 @@
 - PostgreSQL 迁移脚本：tenants/users/sites/devices/links/audit 等核心表。
 - 首个纵向切片：Tenant + Device REST API（内存仓储，可无 DB 运行）+ 单元测试。
 - Next.js 14 + TypeScript 控制台骨架与现代化暗色 UI shell（仪表盘 / 设备 / 租户）。
+- Epic 2：RouterOS 设备能力识别。`routeros` 包：DeviceFacts 模型 + `Detect`（识别 RouterBOARD/CHR/x86、版本、架构、软件包、License、Device Mode、接口能力，归一化为能力矩阵；基于能力而非型号字符串）+ Collector 接口与 StaticCollector。`inventory` 包新增 Trust State 状态机、`Detect`（探测并丰富设备 + 推进信任状态）、`SetTrustState`，以及 `/devices/{id}/detect`、`/devices/{id}/trust` API 端点。覆盖单元测试。

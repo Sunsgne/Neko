@@ -9,14 +9,14 @@ import (
 
 // Config holds all runtime configuration for Neko services.
 type Config struct {
-	Env         string // development | production
-	HTTPAddr    string // e.g. ":8080"
-	LogLevel    string // debug | info | warn | error
-	Store       string // memory | postgres
-	DatabaseURL string
-	RedisURL    string
-	NATSURL     string
-	VMURL       string
+	Env          string // development | production
+	HTTPAddr     string // e.g. ":8080"
+	LogLevel     string // debug | info | warn | error
+	Store        string // memory | postgres
+	DatabaseURL  string
+	RedisURL     string
+	NATSURL      string
+	VMURL        string
 	OTLPEndpoint string
 	ServiceName  string
 }

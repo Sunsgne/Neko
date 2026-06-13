@@ -54,17 +54,17 @@ type InterfaceCapability struct {
 // CapabilityMatrix is the normalized, structured capability set for a device.
 // Config decisions are based on capabilities, NOT on a model string.
 type CapabilityMatrix struct {
-	RouterOSVersion string                `json:"routeros_version"`
-	Architecture    string                `json:"architecture"` // arm | arm64 | mipsbe | tile | x86_64
-	BoardName       string                `json:"board_name"`
-	Packages        []string              `json:"packages"`
-	LicenseLevel    int                   `json:"license_level"`
-	DeviceMode      string                `json:"device_mode"` // home | enterprise
-	Interfaces      []InterfaceCapability `json:"interfaces"`
-	SupportsBGP     bool                  `json:"supports_bgp"`
-	SupportsOSPF    bool                  `json:"supports_ospf"`
-	SupportsWireGuard bool                `json:"supports_wireguard"`
-	SupportsContainer bool                `json:"supports_container"`
+	RouterOSVersion   string                `json:"routeros_version"`
+	Architecture      string                `json:"architecture"` // arm | arm64 | mipsbe | tile | x86_64
+	BoardName         string                `json:"board_name"`
+	Packages          []string              `json:"packages"`
+	LicenseLevel      int                   `json:"license_level"`
+	DeviceMode        string                `json:"device_mode"` // home | enterprise
+	Interfaces        []InterfaceCapability `json:"interfaces"`
+	SupportsBGP       bool                  `json:"supports_bgp"`
+	SupportsOSPF      bool                  `json:"supports_ospf"`
+	SupportsWireGuard bool                  `json:"supports_wireguard"`
+	SupportsContainer bool                  `json:"supports_container"`
 }
 
 // Device is a managed RouterOS device.

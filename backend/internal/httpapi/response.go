@@ -58,6 +58,8 @@ func respondServiceError(w http.ResponseWriter, err error) {
 		respondError(w, http.StatusConflict, "conflict", "resource already exists")
 	case errors.Is(err, tenant.ErrInvalidInput), errors.Is(err, inventory.ErrInvalidInput):
 		respondError(w, http.StatusBadRequest, "invalid_input", err.Error())
+	case errors.Is(err, inventory.ErrTransitionNotAllowed):
+		respondError(w, http.StatusConflict, "transition_not_allowed", err.Error())
 	default:
 		respondError(w, http.StatusInternalServerError, "internal", "internal server error")
 	}

@@ -83,6 +83,31 @@ func (s *Server) handleGetDevice(w http.ResponseWriter, r *http.Request) {
 	respondData(w, http.StatusOK, d)
 }
 
+func (s *Server) handleDetectDevice(w http.ResponseWriter, r *http.Request) {
+	d, err := s.inventory.Detect(r.Context(), tenantFrom(r.Context()), r.PathValue("id"))
+	if err != nil {
+		respondServiceError(w, err)
+		return
+	}
+	respondData(w, http.StatusOK, d)
+}
+
+func (s *Server) handleSetDeviceTrust(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		TrustState store.TrustState `json:"trust_state"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_json", "request body is not valid JSON")
+		return
+	}
+	d, err := s.inventory.SetTrustState(r.Context(), tenantFrom(r.Context()), r.PathValue("id"), body.TrustState)
+	if err != nil {
+		respondServiceError(w, err)
+		return
+	}
+	respondData(w, http.StatusOK, d)
+}
+
 func pageFrom(r *http.Request) store.Page {
 	q := r.URL.Query()
 	num, _ := strconv.Atoi(q.Get("page"))

@@ -19,10 +19,10 @@
 - [ ] T1.4 审计日志（追加写）+ 查询 API
 
 ## Epic 2 — 设备纳管与能力矩阵
-- [ ] T2.1 RouterOS API/SSH 客户端封装
-- [ ] T2.2 型号/版本/架构/包/License/Device Mode 识别
-- [ ] T2.3 接口与接口能力发现，归一化能力矩阵存库
-- [ ] T2.4 Trust State 状态机 + 设备纳管流程（含接管现网设备）
+- [~] T2.1 RouterOS API/SSH 客户端封装（已定义 Collector 接口 + StaticCollector；REST 实现待补）
+- [x] T2.2 型号/版本/架构/包/License/Device Mode 识别（routeros.Detect + 测试）
+- [x] T2.3 接口与接口能力发现，归一化能力矩阵（store.CapabilityMatrix）
+- [x] T2.4 Trust State 状态机 + 设备纳管 Detect/SetTrustState + API 端点（含降级）
 
 ## Epic 3 — 配置引擎 (Desired State)
 - [ ] T3.1 Desired State 数据模型 + 快照存储
