@@ -40,9 +40,9 @@
 ## Epic 5 — SNMP 原生引擎
 - [ ] T5.1 gosnmp 引擎（v2c/v3）+ 凭据管理
 - [ ] T5.2 设备发现（网段扫描 + sysObjectID 识别）
-- [ ] T5.3 轮询：接口流量/CPU/内存/温度 → VictoriaMetrics
+- [~] T5.3 轮询计算：接口计数器 → bps（含 32 位回绕/64 位重置处理）+ 利用率（snmp 包）；VictoriaMetrics 写入待补
 - [ ] T5.4 Trap 接收器（:162）+ 解析
-- [ ] T5.5 告警规则引擎（阈值/抑制/去重/升级 + 通知渠道）
+- [~] T5.5 告警规则引擎（alerting 包：阈值 + for-duration + 去重 + firing/resolved 转换 + 多 series 隔离）；抑制/升级/通知渠道待补
 
 ## Epic 6 — 版本与初始化
 - [ ] T6.1 RouterOS 版本验证与可用更新检测
