@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/neko/sdwan/backend/internal/auth"
 	"github.com/neko/sdwan/backend/internal/config"
 	"github.com/neko/sdwan/backend/internal/httpapi"
 	"github.com/neko/sdwan/backend/internal/idgen"
@@ -40,11 +41,24 @@ func main() {
 	// once device credentials/connectivity land (Epic 2 follow-up).
 	inventorySvc := inventory.NewService(st.Devices(), nil, func() string { return idgen.New("dev") }, now)
 
+	var authn auth.Authenticator
+	if cfg.AuthEnabled {
+		ma := auth.NewMemoryAuthenticator()
+		if cfg.OperatorToken != "" {
+			ma.AddToken(cfg.OperatorToken, auth.Principal{IsOperator: true})
+			logger.Info("auth enabled with seeded operator token")
+		} else {
+			logger.Warn("auth enabled but NEKO_OPERATOR_TOKEN is empty; no tokens registered")
+		}
+		authn = ma
+	}
+
 	srv := httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Tenants:   tenantSvc,
 		Inventory: inventorySvc,
 		StoreKind: cfg.Store,
+		Auth:      authn,
 	})
 
 	httpServer := &http.Server{

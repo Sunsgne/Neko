@@ -19,22 +19,28 @@ type Config struct {
 	VMURL        string
 	OTLPEndpoint string
 	ServiceName  string
+	// AuthEnabled gates bearer-token authentication. Default off in
+	// development for zero-friction; set NEKO_AUTH=on in production.
+	AuthEnabled   bool
+	OperatorToken string // seed operator token when auth is enabled
 }
 
 // Load reads configuration from the environment, applying sensible defaults
 // so the API can run with zero external dependencies (memory store).
 func Load() Config {
 	return Config{
-		Env:          env("NEKO_ENV", "development"),
-		HTTPAddr:     env("NEKO_HTTP_ADDR", ":8080"),
-		LogLevel:     env("NEKO_LOG_LEVEL", "info"),
-		Store:        env("NEKO_STORE", "memory"),
-		DatabaseURL:  env("DATABASE_URL", ""),
-		RedisURL:     env("REDIS_URL", ""),
-		NATSURL:      env("NATS_URL", ""),
-		VMURL:        env("VM_URL", ""),
-		OTLPEndpoint: env("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		ServiceName:  env("OTEL_SERVICE_NAME", "neko-api"),
+		Env:           env("NEKO_ENV", "development"),
+		HTTPAddr:      env("NEKO_HTTP_ADDR", ":8080"),
+		LogLevel:      env("NEKO_LOG_LEVEL", "info"),
+		Store:         env("NEKO_STORE", "memory"),
+		DatabaseURL:   env("DATABASE_URL", ""),
+		RedisURL:      env("REDIS_URL", ""),
+		NATSURL:       env("NATS_URL", ""),
+		VMURL:         env("VM_URL", ""),
+		OTLPEndpoint:  env("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+		ServiceName:   env("OTEL_SERVICE_NAME", "neko-api"),
+		AuthEnabled:   strings.EqualFold(env("NEKO_AUTH", "off"), "on"),
+		OperatorToken: env("NEKO_OPERATOR_TOKEN", ""),
 	}
 }
 

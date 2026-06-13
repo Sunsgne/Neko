@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/neko/sdwan/backend/internal/auth"
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/tenant"
 )
@@ -15,6 +16,7 @@ type Server struct {
 	tenants   *tenant.Service
 	inventory *inventory.Service
 	storeKind string
+	auth      auth.Authenticator // nil = auth disabled
 }
 
 // Deps are the dependencies required to build the server.
@@ -23,6 +25,7 @@ type Deps struct {
 	Tenants   *tenant.Service
 	Inventory *inventory.Service
 	StoreKind string
+	Auth      auth.Authenticator
 }
 
 // New builds a Server.
@@ -32,6 +35,7 @@ func New(d Deps) *Server {
 		tenants:   d.Tenants,
 		inventory: d.Inventory,
 		storeKind: d.StoreKind,
+		auth:      d.Auth,
 	}
 }
 
@@ -56,11 +60,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/devices/{id}/detect", s.handleDetectDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/trust", s.handleSetDeviceTrust)
 
-	return chain(mux,
+	mws := []func(http.Handler) http.Handler{
 		recoverer(s.logger),
 		requestID,
 		logging(s.logger),
 		cors,
-		tenantScope,
-	)
+	}
+	if s.auth != nil {
+		// Token auth derives tenant scope from the principal.
+		mws = append(mws, authenticate(s.auth))
+	} else {
+		// Dev mode: scope comes from the X-Tenant-Id header.
+		mws = append(mws, tenantScope)
+	}
+	return chain(mux, mws...)
 }

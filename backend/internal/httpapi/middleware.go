@@ -6,7 +6,10 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/neko/sdwan/backend/internal/auth"
 )
 
 type ctxKey string
@@ -14,7 +17,45 @@ type ctxKey string
 const (
 	ctxKeyRequestID ctxKey = "request_id"
 	ctxKeyTenantID  ctxKey = "tenant_id"
+	ctxKeyPrincipal ctxKey = "principal"
 )
+
+// authenticate validates the bearer token and derives the tenant scope from
+// the resulting principal. Operators may target any tenant via X-Tenant-Id;
+// tenant principals are locked to their own tenant.
+func authenticate(a auth.Authenticator) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Health endpoints are always public.
+			if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			token := bearerToken(r)
+			p, err := a.Authenticate(r.Context(), token)
+			if err != nil {
+				respondError(w, http.StatusUnauthorized, "unauthorized", "missing or invalid token")
+				return
+			}
+			scope := p.Scope()
+			if p.IsOperator {
+				// Operator may scope to a specific tenant via header.
+				scope = r.Header.Get("X-Tenant-Id")
+			}
+			ctx := context.WithValue(r.Context(), ctxKeyPrincipal, p)
+			ctx = context.WithValue(ctx, ctxKeyTenantID, scope)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+func bearerToken(r *http.Request) string {
+	h := r.Header.Get("Authorization")
+	if strings.HasPrefix(strings.ToLower(h), "bearer ") {
+		return strings.TrimSpace(h[7:])
+	}
+	return ""
+}
 
 // requestID assigns a unique id to each request and exposes it via header.
 func requestID(next http.Handler) http.Handler {
