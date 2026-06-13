@@ -1,0 +1,71 @@
+# TASKS.md — 任务队列（AI 持续领取）
+
+> 规则：从上往下领取**第一个未完成**任务；完成后勾选并提交；队列见底后按 `AGENTS.md` §4 追加深化任务。**不要停。**
+>
+> 状态图例：`[ ]` 待办 · `[~]` 进行中 · `[x]` 完成
+
+## Epic 0 — 项目基线 (Bootstrap)
+- [x] T0.1 编写 `AGENTS.md` 权威说明书
+- [x] T0.2 仓库结构、根 README、.gitignore、Makefile、docker-compose、.env.example
+- [x] T0.3 Go 后端骨架：config、结构化日志、HTTP server、健康检查、优雅退出
+- [x] T0.4 PostgreSQL schema 与迁移（tenants/users/sites/devices/links/...）
+- [x] T0.5 第一个纵向切片：Tenant + Device REST API（内存仓储，便于无 DB 运行）
+- [x] T0.6 Next.js 控制台骨架 + 现代化 UI shell（仪表盘 / 设备 / 租户）
+
+## Epic 1 — 多租户与 RBAC
+- [ ] T1.1 pgx 接入 + 仓储实现（替换内存仓储，保留接口）
+- [ ] T1.2 用户/角色/权限模型 + JWT/Token 鉴权中间件
+- [ ] T1.3 PostgreSQL 行级安全 (RLS) 多租户隔离
+- [ ] T1.4 审计日志（追加写）+ 查询 API
+
+## Epic 2 — 设备纳管与能力矩阵
+- [ ] T2.1 RouterOS API/SSH 客户端封装
+- [ ] T2.2 型号/版本/架构/包/License/Device Mode 识别
+- [ ] T2.3 接口与接口能力发现，归一化能力矩阵存库
+- [ ] T2.4 Trust State 状态机 + 设备纳管流程（含接管现网设备）
+
+## Epic 3 — 配置引擎 (Desired State)
+- [ ] T3.1 Desired State 数据模型 + 快照存储
+- [ ] T3.2 Running 抓取 + Diff 计算 + 风险分级
+- [ ] T3.3 下发执行器（commit-confirm / safe-mode / rollback-timer / 管理通道保护）
+- [ ] T3.4 自动验证探针 + 自动回滚
+- [ ] T3.5 批量 Canary 灰度编排
+
+## Epic 4 — SD-WAN 组网与动态路由
+- [ ] T4.1 Overlay 隧道编排（WireGuard/IPIP/EoIP/GRE 按能力）
+- [ ] T4.2 静态路由 + OSPF 编排
+- [ ] T4.3 BGP（eBGP/iBGP）+ 双 POP + Route Reflector + BFD
+- [ ] T4.4 路由策略：过滤/发布/汇总/重分发 + 防泄漏（VRF/community）
+
+## Epic 5 — SNMP 原生引擎
+- [ ] T5.1 gosnmp 引擎（v2c/v3）+ 凭据管理
+- [ ] T5.2 设备发现（网段扫描 + sysObjectID 识别）
+- [ ] T5.3 轮询：接口流量/CPU/内存/温度 → VictoriaMetrics
+- [ ] T5.4 Trap 接收器（:162）+ 解析
+- [ ] T5.5 告警规则引擎（阈值/抑制/去重/升级 + 通知渠道）
+
+## Epic 6 — 版本与初始化
+- [ ] T6.1 RouterOS 版本验证与可用更新检测
+- [ ] T6.2 RouterOS 受控升级（下载校验/灰度/重启/验证/回滚）
+- [ ] T6.3 RouterBOOT 升级编排
+- [ ] T6.4 设备初始化开局模板
+
+## Epic 7 — DNS 管理与中国区调度
+- [ ] T7.1 DNS 服务器池 + 健康检查
+- [ ] T7.2 地域+运营商调度策略 + ECS
+- [ ] T7.3 下发到 RouterOS（/ip/dns + 分流）+ 解析质量可观测
+
+## Epic 8 — 链路质量监控、上报与切换
+- [ ] T8.1 探测引擎（ICMP/TCP/HTTP/HTTPS/DNS）+ 延迟/丢包/抖动
+- [ ] T8.2 链路评分 + 上报通道（NATS → VictoriaMetrics）
+- [ ] T8.3 本地快速切换 + 中心全局切换 + 主备 + 自动恢复 + 防震荡
+
+## Epic 9 — 可观测性与大盘
+- [ ] T9.1 OpenTelemetry（trace/metrics/logs）贯通
+- [ ] T9.2 运营大盘 + 租户大盘前端
+- [ ] T9.3 拓扑可视化（React Flow）
+
+## Epic 10 — 交付与运维
+- [ ] T10.1 GitHub Actions CI（make check）
+- [ ] T10.2 容器镜像与部署清单
+- [ ] T10.3 端到端演示数据与种子脚本

@@ -1,0 +1,28 @@
+# Go
+/backend/bin/
+*.test
+*.out
+coverage.txt
+
+# Node / Next.js
+node_modules/
+/web/.next/
+/web/out/
+/web/next-env.d.ts
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
+
+# Build / data
+/data/
+dist/
