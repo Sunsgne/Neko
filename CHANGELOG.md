@@ -12,5 +12,6 @@
 - PostgreSQL 迁移脚本：tenants/users/sites/devices/links/audit 等核心表。
 - 首个纵向切片：Tenant + Device REST API（内存仓储，可无 DB 运行）+ 单元测试。
 - Next.js 14 + TypeScript 控制台骨架与现代化暗色 UI shell（仪表盘 / 设备 / 租户）。
+- Epic 8：链路质量评分与切换。`linkqos` 包：`Score` 按延迟/丢包/抖动加权计算 0..100 评分；`Controller` 实现带防震荡的切换状态机（滞后阈值 UpScore/DownScore、MinDown/MinUp 持续时间确认、MinDwell 最小驻留窗口），支持主备角色优先、故障切换与自动回切。覆盖单元测试（评分边界/初始选主/故障切换/驻留抑制/自动回切）。
 - Epic 3：Desired State 配置引擎核心。`configengine` 包：声明式配置模型（Statement/State），`ComputeDiff` 计算属性级最小变更集（确定性排序），风险分级（按 RouterOS 路径基线 + 删除操作升级 + 管理接口/地址变更升级为 critical 以保护管理通道）。覆盖单元测试（增改删/无变更/风险聚合/管理通道/删除升级）。
 - Epic 2：RouterOS 设备能力识别。`routeros` 包：DeviceFacts 模型 + `Detect`（识别 RouterBOARD/CHR/x86、版本、架构、软件包、License、Device Mode、接口能力，归一化为能力矩阵；基于能力而非型号字符串）+ Collector 接口与 StaticCollector。`inventory` 包新增 Trust State 状态机、`Detect`（探测并丰富设备 + 推进信任状态）、`SetTrustState`，以及 `/devices/{id}/detect`、`/devices/{id}/trust` API 端点。覆盖单元测试。

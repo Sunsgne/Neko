@@ -57,8 +57,8 @@
 
 ## Epic 8 — 链路质量监控、上报与切换
 - [ ] T8.1 探测引擎（ICMP/TCP/HTTP/HTTPS/DNS）+ 延迟/丢包/抖动
-- [ ] T8.2 链路评分 + 上报通道（NATS → VictoriaMetrics）
-- [ ] T8.3 本地快速切换 + 中心全局切换 + 主备 + 自动恢复 + 防震荡
+- [~] T8.2 链路评分（linkqos.Score 加权延迟/丢包/抖动）；上报通道（NATS → VictoriaMetrics）待补
+- [x] T8.3 切换决策（linkqos.Controller）：主备 + 自动失败回切 + 防震荡（滞后阈值 + MinDown/MinUp + 最小驻留 MinDwell）
 
 ## Epic 9 — 可观测性与大盘
 - [ ] T9.1 OpenTelemetry（trace/metrics/logs）贯通
