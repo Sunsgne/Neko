@@ -45,10 +45,10 @@
 - [~] T5.5 告警规则引擎（alerting 包：阈值 + for-duration + 去重 + firing/resolved 转换 + 多 series 隔离）；抑制/升级/通知渠道待补
 
 ## Epic 6 — 版本与初始化
-- [ ] T6.1 RouterOS 版本验证与可用更新检测
-- [ ] T6.2 RouterOS 受控升级（下载校验/灰度/重启/验证/回滚）
-- [ ] T6.3 RouterBOOT 升级编排
-- [ ] T6.4 设备初始化开局模板
+- [x] T6.1 RouterOS 版本解析与比较（数值非字典序）+ NeedsUpgrade（lifecycle.CompareVersions）
+- [x] T6.2 RouterOS 受控升级步骤编排（下载→校验→升级→重启→验证→健康检查）
+- [x] T6.3 RouterBOOT 升级编排（仅 RouterBOARD，排在 RouterOS 之后 + 二次重启）
+- [x] T6.4 设备初始化开局模板（identity/时区/NTP/SNMP/管理防火墙，生成 Desired State）
 
 ## Epic 7 — DNS 管理与中国区调度
 - [~] T7.1 DNS 服务器池模型（dns.Server）；健康检查器待补
