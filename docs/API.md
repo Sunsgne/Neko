@@ -34,5 +34,10 @@
 | GET | `/api/v1/devices` | 设备列表 |
 | POST | `/api/v1/devices` | 登记设备（进入纳管流程） |
 | GET | `/api/v1/devices/{id}` | 设备详情（含能力矩阵） |
+| POST | `/api/v1/devices/{id}/detect` | 探测并识别型号/能力，推进信任状态 |
+| POST | `/api/v1/devices/{id}/trust` | 变更设备信任状态（状态机校验） |
+| POST | `/api/v1/tools/config-diff` | 计算 Desired State Diff + 风险分级 |
+| POST | `/api/v1/tools/routing/validate` | 路由意图防泄漏校验 + 生成配置 |
+| POST | `/api/v1/tools/link-score` | 计算链路质量评分 |
 
 > 新增端点请同步更新本表与 `web/lib/api.ts` 类型。

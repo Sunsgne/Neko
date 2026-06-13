@@ -60,6 +60,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/devices/{id}/detect", s.handleDetectDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/trust", s.handleSetDeviceTrust)
 
+	// Stateless planning/validation tools (preview before apply).
+	mux.HandleFunc("POST /api/v1/tools/config-diff", s.handleConfigDiff)
+	mux.HandleFunc("POST /api/v1/tools/routing/validate", s.handleRoutingValidate)
+	mux.HandleFunc("POST /api/v1/tools/link-score", s.handleLinkScore)
+
 	mws := []func(http.Handler) http.Handler{
 		recoverer(s.logger),
 		requestID,
