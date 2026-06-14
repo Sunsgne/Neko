@@ -28,13 +28,28 @@ func main() {
 	cfg := config.Load()
 	logger := observability.NewLogger(cfg.LogLevel, cfg.Env)
 
-	// Store selection. memory is the zero-dependency default (ADR-0004).
+	// Store selection. memory is the zero-dependency default (ADR-0004);
+	// postgres provides durable, RLS-isolated storage (T1.1/T1.3).
 	var st store.Store
 	switch cfg.Store {
+	case "postgres":
+		pg, err := store.OpenPostgres(context.Background(), cfg.DatabaseURL)
+		if err != nil {
+			logger.Error("postgres unavailable", "err", err)
+			os.Exit(1)
+		}
+		if err := pg.Migrate(context.Background()); err != nil {
+			logger.Error("migration failed", "err", err)
+			os.Exit(1)
+		}
+		defer pg.Close()
+		st = pg
+		logger.Info("using postgres store (migrations applied)")
 	case "memory", "":
 		st = store.NewMemory()
+		cfg.Store = "memory"
 	default:
-		logger.Warn("unsupported store, falling back to memory (postgres lands in Epic 1)", "store", cfg.Store)
+		logger.Warn("unknown store, falling back to memory", "store", cfg.Store)
 		st = store.NewMemory()
 		cfg.Store = "memory"
 	}
