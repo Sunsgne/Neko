@@ -27,9 +27,9 @@
 ## Epic 3 — 配置引擎 (Desired State)
 - [x] T3.1 Desired State 数据模型（Statement/State/Plan/Change）
 - [x] T3.2 Diff 计算（属性级，确定性排序）+ 风险分级（路径基线 + 删除升级 + 管理通道保护=critical）
-- [ ] T3.3 下发执行器（commit-confirm / safe-mode / rollback-timer / 管理通道保护）
-- [ ] T3.4 自动验证探针 + 自动回滚
-- [ ] T3.5 批量 Canary 灰度编排
+- [x] T3.3 下发执行器（configengine.Execute：snapshot→diff→风险闸门→commit-confirm 下发；Applier 接口含 device-side auto-revert 保护管理通道）
+- [x] T3.4 自动验证（Verifier 接口）+ 验证失败自动 Restore 回滚
+- [x] T3.5 批量 Canary 灰度编排（PlanCanaryBatches：1 台→5%→25%→100%，全覆盖）
 
 ## Epic 4 — SD-WAN 组网与动态路由
 - [ ] T4.1 Overlay 隧道编排（WireGuard/IPIP/EoIP/GRE 按能力）
