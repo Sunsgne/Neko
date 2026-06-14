@@ -27,6 +27,7 @@ type Server struct {
 	sessions  *session.Store
 	audit     audit.Recorder
 	alerts    store.AlertRepository
+	dns       store.DNSRepository
 	vm        *vmetrics.Client
 	idgen     func(string) string
 	metrics   *metrics.Registry
@@ -44,6 +45,7 @@ type Deps struct {
 	Sessions  *session.Store
 	Audit     audit.Recorder
 	Alerts    store.AlertRepository
+	Dns       store.DNSRepository
 	VM        *vmetrics.Client
 	IDGen     func(string) string
 	Metrics   *metrics.Registry
@@ -66,6 +68,7 @@ func New(d Deps) *Server {
 		sessions:  d.Sessions,
 		audit:     d.Audit,
 		alerts:    d.Alerts,
+		dns:       d.Dns,
 		vm:        d.VM,
 		idgen:     d.IDGen,
 		metrics:   m,
@@ -135,6 +138,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/links", s.handleListLinks)
 	mux.HandleFunc("GET /api/v1/alerts", s.handleListAlerts)
 	mux.HandleFunc("GET /api/v1/dns/servers", s.handleListDNSServers)
+	mux.HandleFunc("POST /api/v1/dns/servers", s.handleCreateDNSServer)
+	mux.HandleFunc("DELETE /api/v1/dns/servers/{id}", s.handleDeleteDNSServer)
+	mux.HandleFunc("POST /api/v1/devices/{id}/dns", s.handleDNSApply)
 
 	// Stateless planning/validation tools (preview before apply).
 	mux.HandleFunc("POST /api/v1/tools/config-diff", s.handleConfigDiff)

@@ -32,10 +32,10 @@ func (s *Server) handleListAlerts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListDNSServers(w http.ResponseWriter, r *http.Request) {
-	if s.catalog == nil {
-		respondList(w, []any{}, Meta{Page: 1, PageSize: 20, Total: 0})
+	items, err := s.dns.List(r.Context(), tenantFrom(r.Context()))
+	if err != nil {
+		respondServiceError(w, err)
 		return
 	}
-	items := s.catalog.DNSServers(r.Context(), tenantFrom(r.Context()))
 	respondList(w, items, Meta{Page: 1, PageSize: len(items), Total: len(items)})
 }

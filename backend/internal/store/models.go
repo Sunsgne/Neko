@@ -80,6 +80,19 @@ type CapabilityMatrix struct {
 	SupportsContainer bool                  `json:"supports_container"`
 }
 
+// DNSServer is a persisted upstream DNS server in the pool.
+type DNSServer struct {
+	ID          string    `json:"id"`
+	TenantID    string    `json:"tenant_id"`
+	Address     string    `json:"address"`
+	Region      string    `json:"region"`
+	ISP         string    `json:"isp"` // telecom | unicom | mobile | edu | public
+	SupportsECS bool      `json:"supports_ecs"`
+	Healthy     bool      `json:"healthy"`
+	LatencyMs   int       `json:"latency_ms"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 // SessionRecord is a persisted login session (survives API restarts).
 type SessionRecord struct {
 	Token      string

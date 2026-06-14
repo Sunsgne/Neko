@@ -106,14 +106,16 @@ func Demo(ctx context.Context, st store.Store, cat *catalog.Catalog) error {
 		{ID: "al_3", TenantID: "ten_acme", DeviceID: "dev_sh01", Severity: "info", Title: "BGP 策略 v7 已确认", Detail: "commit-confirm 成功", State: "resolved", FiredAt: "2026-06-14T03:33:00Z"},
 	})
 
-	cat.ReplaceDNS([]catalog.DNSServer{
-		{ID: "dns_tel_sh", TenantID: "", Address: "202.96.209.133", Region: "shanghai", ISP: "telecom", SupportsECS: true, Healthy: true, LatencyMs: 5},
-		{ID: "dns_uni_bj", TenantID: "", Address: "123.123.123.123", Region: "beijing", ISP: "unicom", Healthy: true, LatencyMs: 8},
-		{ID: "dns_mob_gz", TenantID: "", Address: "211.136.192.6", Region: "guangzhou", ISP: "mobile", Healthy: true, LatencyMs: 12},
-		{ID: "dns_ali", TenantID: "", Address: "223.5.5.5", Region: "", ISP: "public", SupportsECS: true, Healthy: true, LatencyMs: 6},
-		{ID: "dns_114", TenantID: "", Address: "114.114.114.114", Region: "", ISP: "public", Healthy: true, LatencyMs: 10},
-		{ID: "dns_acme_int", TenantID: "ten_acme", Address: "10.10.0.53", Region: "shanghai", ISP: "telecom", SupportsECS: true, Healthy: true, LatencyMs: 2},
-	})
+	// Persisted DNS pool (manageable + deliverable from the DNS page).
+	for _, d := range []store.DNSServer{
+		{ID: "dns_tel_sh", Address: "202.96.209.133", Region: "shanghai", ISP: "telecom", SupportsECS: true, Healthy: true, LatencyMs: 5},
+		{ID: "dns_uni_bj", Address: "123.123.123.123", Region: "beijing", ISP: "unicom", Healthy: true, LatencyMs: 8},
+		{ID: "dns_mob_gz", Address: "211.136.192.6", Region: "guangzhou", ISP: "mobile", Healthy: true, LatencyMs: 12},
+		{ID: "dns_ali", Address: "223.5.5.5", Region: "", ISP: "public", SupportsECS: true, Healthy: true, LatencyMs: 6},
+		{ID: "dns_114", Address: "114.114.114.114", Region: "", ISP: "public", Healthy: true, LatencyMs: 10},
+	} {
+		_ = st.Dns().Create(ctx, d)
+	}
 
 	return nil
 }

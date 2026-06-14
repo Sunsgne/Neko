@@ -97,6 +97,13 @@ type SessionRepository interface {
 	Delete(ctx context.Context, token string) error
 }
 
+// DNSRepository persists the upstream DNS server pool.
+type DNSRepository interface {
+	Create(ctx context.Context, s DNSServer) error
+	List(ctx context.Context, tenantID string) ([]*DNSServer, error)
+	Delete(ctx context.Context, tenantID, id string) error
+}
+
 // Store aggregates all repositories.
 type Store interface {
 	Tenants() TenantRepository
@@ -105,4 +112,5 @@ type Store interface {
 	Alerts() AlertRepository
 	Snapshots() ConfigSnapshotRepository
 	Sessions() SessionRepository
+	Dns() DNSRepository
 }

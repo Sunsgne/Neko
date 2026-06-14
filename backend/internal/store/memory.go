@@ -17,6 +17,7 @@ type MemoryStore struct {
 	alerts  *memAlertRepo
 	snaps   *memSnapshotRepo
 	sess    *memSessionRepo
+	dns     *memDNSRepo
 }
 
 // NewMemory builds a ready-to-use in-memory store.
@@ -28,6 +29,7 @@ func NewMemory() *MemoryStore {
 		alerts:  &memAlertRepo{items: map[string]*Alert{}},
 		snaps:   &memSnapshotRepo{items: map[string]*ConfigSnapshot{}},
 		sess:    &memSessionRepo{items: map[string]SessionRecord{}},
+		dns:     &memDNSRepo{items: map[string]*DNSServer{}},
 	}
 }
 
@@ -37,6 +39,45 @@ func (m *MemoryStore) Credentials() CredentialRepository   { return m.creds }
 func (m *MemoryStore) Alerts() AlertRepository             { return m.alerts }
 func (m *MemoryStore) Snapshots() ConfigSnapshotRepository { return m.snaps }
 func (m *MemoryStore) Sessions() SessionRepository         { return m.sess }
+func (m *MemoryStore) Dns() DNSRepository                  { return m.dns }
+
+type memDNSRepo struct {
+	mu    sync.RWMutex
+	items map[string]*DNSServer
+}
+
+func (r *memDNSRepo) Create(_ context.Context, s DNSServer) error {
+	r.mu.Lock()
+	cp := s
+	r.items[s.ID] = &cp
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *memDNSRepo) List(_ context.Context, tenantID string) ([]*DNSServer, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*DNSServer, 0, len(r.items))
+	for _, s := range r.items {
+		if tenantID == "" || s.TenantID == "" || s.TenantID == tenantID {
+			cp := *s
+			out = append(out, &cp)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].LatencyMs < out[j].LatencyMs })
+	return out, nil
+}
+
+func (r *memDNSRepo) Delete(_ context.Context, tenantID, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	s, ok := r.items[id]
+	if !ok || (tenantID != "" && s.TenantID != "" && s.TenantID != tenantID) {
+		return ErrNotFound
+	}
+	delete(r.items, id)
+	return nil
+}
 
 type memSessionRepo struct {
 	mu    sync.RWMutex

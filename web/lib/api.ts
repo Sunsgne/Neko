@@ -388,3 +388,32 @@ export async function listDNSServers(token?: string): Promise<DNSServer[]> {
   const env = await request<DNSServer[]>("GET", "/api/v1/dns/servers", { token });
   return env.data ?? [];
 }
+
+export async function createDNSServer(
+  body: { address: string; region?: string; isp?: string; supports_ecs?: boolean; latency_ms?: number },
+  token?: string,
+): Promise<DNSServer> {
+  const env = await request<DNSServer>("POST", "/api/v1/dns/servers", { token, body });
+  return env.data;
+}
+
+export async function deleteDNSServer(id: string, token?: string): Promise<void> {
+  await request("DELETE", `/api/v1/dns/servers/${id}`, { token });
+}
+
+export interface DNSApplyResult {
+  dry_run?: boolean;
+  desired?: { statements: Array<{ path: string; key: string; attributes: Record<string, string> }> };
+  plan?: { changes: Array<{ type: string; risk: string }>; aggregate_risk: string };
+  result?: { status: string; reason?: string };
+  error?: string;
+}
+
+export async function applyDNS(
+  deviceId: string,
+  body: { server_addresses: string[]; username?: string; password?: string; dry_run: boolean },
+  token?: string,
+): Promise<DNSApplyResult> {
+  const env = await request<DNSApplyResult>("POST", `/api/v1/devices/${deviceId}/dns`, { token, body });
+  return env.data;
+}

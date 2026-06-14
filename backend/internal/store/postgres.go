@@ -24,6 +24,7 @@ type PostgresStore struct {
 	alerts  *pgAlertRepo
 	snaps   *pgSnapshotRepo
 	sess    *pgSessionRepo
+	dns     *pgDNSRepo
 }
 
 // OpenPostgres connects to PostgreSQL and verifies connectivity.
@@ -46,6 +47,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 		alerts:  &pgAlertRepo{pool: pool},
 		snaps:   &pgSnapshotRepo{pool: pool},
 		sess:    &pgSessionRepo{pool: pool},
+		dns:     &pgDNSRepo{pool: pool},
 	}, nil
 }
 
@@ -103,6 +105,62 @@ func (s *PostgresStore) Credentials() CredentialRepository   { return s.creds }
 func (s *PostgresStore) Alerts() AlertRepository             { return s.alerts }
 func (s *PostgresStore) Snapshots() ConfigSnapshotRepository { return s.snaps }
 func (s *PostgresStore) Sessions() SessionRepository         { return s.sess }
+func (s *PostgresStore) Dns() DNSRepository                  { return s.dns }
+
+type pgDNSRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgDNSRepo) Create(ctx context.Context, s DNSServer) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO dns_servers (id, tenant_id, address, region, isp, supports_ecs, healthy, latency_ms)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		s.ID, nullable(s.TenantID), s.Address, s.Region, s.ISP, s.SupportsECS, s.Healthy, s.LatencyMs)
+	return mapPgError(err)
+}
+
+func (r *pgDNSRepo) List(ctx context.Context, tenantID string) ([]*DNSServer, error) {
+	// Operator ("") sees all; a tenant sees shared (NULL) + its own.
+	var rows pgx.Rows
+	var err error
+	if tenantID == "" {
+		rows, err = r.pool.Query(ctx,
+			`SELECT id, coalesce(tenant_id,''), address, region, isp, supports_ecs, healthy, latency_ms, created_at
+			 FROM dns_servers ORDER BY latency_ms ASC`)
+	} else {
+		rows, err = r.pool.Query(ctx,
+			`SELECT id, coalesce(tenant_id,''), address, region, isp, supports_ecs, healthy, latency_ms, created_at
+			 FROM dns_servers WHERE tenant_id IS NULL OR tenant_id=$1 ORDER BY latency_ms ASC`, tenantID)
+	}
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	defer rows.Close()
+	var out []*DNSServer
+	for rows.Next() {
+		var s DNSServer
+		if err := rows.Scan(&s.ID, &s.TenantID, &s.Address, &s.Region, &s.ISP, &s.SupportsECS, &s.Healthy, &s.LatencyMs, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, &s)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgDNSRepo) Delete(ctx context.Context, tenantID, id string) error {
+	q := `DELETE FROM dns_servers WHERE id=$1`
+	args := []any{id}
+	if tenantID != "" {
+		q += ` AND (tenant_id IS NULL OR tenant_id=$2)`
+		args = append(args, tenantID)
+	}
+	ct, err := r.pool.Exec(ctx, q, args...)
+	if err != nil {
+		return mapPgError(err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
 
 type pgSessionRepo struct{ pool *pgxpool.Pool }
 
