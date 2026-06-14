@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **修复运营端登记骨干/出口节点报 500(Postgres)**：平台自营节点(backbone/gateway/POP)不归属租户,但 `devices.tenant_id` 原为 `NOT NULL + 外键`,运营端创建时空 tenant 触发约束错误。新增迁移 `0004_device_tenant_nullable.sql`(tenant_id 可空),Postgres 写入空租户时存 NULL、读取时容错。已在真实 PostgreSQL 16 上复现并验证修复(HTTP 500 → 201)。
+
 ### Added
 - **站点编排 · 链路选择 · 一键下发(易用性重构第一步)**：新增 `linkpolicy` 包(主备 failover 按优先级生成带 distance + check-gateway 的默认路由,断线自动切换/回切;loadbalance 生成按权重的 ECMP 路由 + NAT)。`configengine.Merge` 支持多策略叠加。新增统一编排接口 `POST /api/v1/devices/{id}/orchestrate`:把链路策略 + 加速模式合成为期望配置,`dry_run` 预览(diff+风险)或经 RouterOS REST 一键下发(commit-confirm/回滚)。前端新增「编排下发」页:选设备→选链路(主备/负载均衡,可增删上行)→可叠加加速→预览生成配置→一键下发并显示结果。把原本分散的引擎串成一个可用工作流。
 - **初始化易用性 & Ubuntu 24.04 一键部署**：新增 `scripts/deploy-ubuntu.sh`（`make deploy`）——自动安装 Docker/compose、生成带随机密钥的 `.env`（数据库密码、管理员密码）、按服务器 IP 自动填充对外地址、构建并启动全栈、等待健康检查并打印访问地址与管理员凭据，幂等可重复运行。后端支持 `NEKO_ADMIN_EMAIL/NEKO_ADMIN_PASSWORD` 配置初始运营账号；compose 全面参数化（密码/端口/对外地址经 `.env` 注入）；web 镜像构建期注入 `NEXT_PUBLIC_API_BASE_URL` 以便浏览器正确访问 API。

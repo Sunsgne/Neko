@@ -125,7 +125,7 @@ func (r *pgDeviceRepo) Create(ctx context.Context, d *Device) error {
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO devices (id, tenant_id, name, mgmt_address, role, region, platform, model, serial, trust_state, capabilities, last_seen_at, created_at, updated_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-		d.ID, d.TenantID, d.Name, d.MgmtAddress, string(role), d.Region, string(d.Platform), d.Model, d.Serial,
+		d.ID, nullable(d.TenantID), d.Name, d.MgmtAddress, string(role), d.Region, string(d.Platform), d.Model, d.Serial,
 		string(d.TrustState), caps, d.LastSeenAt, d.CreatedAt, d.UpdatedAt)
 	return mapPgError(err)
 }
@@ -203,10 +203,14 @@ type rowScanner interface {
 func scanDevice(row rowScanner) (*Device, error) {
 	var d Device
 	var platform, trust, role string
+	var tenantID *string
 	var caps []byte
-	if err := row.Scan(&d.ID, &d.TenantID, &d.Name, &d.MgmtAddress, &role, &d.Region, &platform, &d.Model,
+	if err := row.Scan(&d.ID, &tenantID, &d.Name, &d.MgmtAddress, &role, &d.Region, &platform, &d.Model,
 		&d.Serial, &trust, &caps, &d.LastSeenAt, &d.CreatedAt, &d.UpdatedAt); err != nil {
 		return nil, mapPgError(err)
+	}
+	if tenantID != nil {
+		d.TenantID = *tenantID
 	}
 	d.Role = DeviceRole(role)
 	d.Platform = DevicePlatform(platform)
@@ -218,6 +222,16 @@ func scanDevice(row rowScanner) (*Device, error) {
 		}
 	}
 	return &d, nil
+}
+
+// nullable converts an empty string to a SQL NULL so platform-owned devices
+// (no tenant) satisfy the nullable tenant_id column instead of violating the
+// foreign key with an empty string.
+func nullable(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 func marshalCaps(c *CapabilityMatrix) ([]byte, error) {
