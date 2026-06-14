@@ -4,9 +4,8 @@
 // server components for authenticated SSR fetches). For the demo this is a
 // non-httpOnly cookie; production should issue an httpOnly, Secure cookie.
 
-export const TOKEN_COOKIE = "neko_token";
-export const EMAIL_COOKIE = "neko_email";
-export const ROLE_COOKIE = "neko_role";
+export { TOKEN_COOKIE, EMAIL_COOKIE, ROLE_COOKIE } from "@/lib/cookies";
+import { TOKEN_COOKIE, EMAIL_COOKIE, ROLE_COOKIE } from "@/lib/cookies";
 
 function setCookie(name: string, value: string, maxAgeSec: number) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSec}; samesite=lax`;
