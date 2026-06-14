@@ -75,7 +75,8 @@ func bearerToken(r *http.Request) string {
 	if strings.HasPrefix(strings.ToLower(h), "bearer ") {
 		return strings.TrimSpace(h[7:])
 	}
-	return ""
+	// Fallback for SSE (EventSource cannot set headers): ?token=...
+	return r.URL.Query().Get("token")
 }
 
 // requestID assigns a unique id to each request and exposes it via header.

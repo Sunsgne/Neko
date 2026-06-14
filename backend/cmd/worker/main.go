@@ -15,6 +15,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/idgen"
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/monitoring"
+	"github.com/neko/sdwan/backend/internal/notify"
 	"github.com/neko/sdwan/backend/internal/observability"
 	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/secret"
@@ -57,6 +58,8 @@ func main() {
 	})
 
 	vm := vmetrics.New(cfg.VMURL)
+	notifier := notify.FromEnv(cfg.AlertWebhook, cfg.DingTalkURL, cfg.WeComURL)
+	logger.Info("alert notifications", "channels", len(notifier.Notifiers))
 
 	interval := 30 * time.Second
 	ticker := time.NewTicker(interval)
@@ -72,12 +75,12 @@ func main() {
 	defer snapTicker.Stop()
 	logger.Info("config snapshot/drift loop running", "interval", snapInterval.String())
 
-	pollAll(context.Background(), logger, svc, pg, vm)
+	pollAll(context.Background(), logger, svc, pg, vm, notifier)
 	snapshotAll(context.Background(), logger, svc, pg)
 	for {
 		select {
 		case <-ticker.C:
-			pollAll(context.Background(), logger, svc, pg, vm)
+			pollAll(context.Background(), logger, svc, pg, vm, notifier)
 		case <-snapTicker.C:
 			snapshotAll(context.Background(), logger, svc, pg)
 		case <-stop:
@@ -132,7 +135,7 @@ func snapshotAll(ctx context.Context, logger interface {
 func pollAll(ctx context.Context, logger interface {
 	Info(string, ...any)
 	Warn(string, ...any)
-}, svc *inventory.Service, pg *store.PostgresStore, vm *vmetrics.Client) {
+}, svc *inventory.Service, pg *store.PostgresStore, vm *vmetrics.Client, notifier notify.FanOut) {
 	// Operator scope ("" tenant) lists all devices.
 	devices, _, err := pg.Devices().List(ctx, "", store.Page{Number: 1, Size: 1000})
 	if err != nil {
@@ -176,6 +179,9 @@ func pollAll(ctx context.Context, logger interface {
 				}
 				if _, created, _ := pg.Alerts().Fire(ctx, a); created {
 					fired++
+					if notifier.Enabled() {
+						_ = notifier.Send(ctx, notify.Message{Title: c.Title, Text: c.Detail, Severity: c.Severity})
+					}
 				}
 			} else {
 				if ok, _ := pg.Alerts().Resolve(ctx, dd.ID, c.Code, now); ok {

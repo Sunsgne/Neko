@@ -20,6 +20,7 @@ services:
       NEKO_SEED: ${NEKO_SEED:-true}
       NEKO_ADMIN_EMAIL: ${NEKO_ADMIN_EMAIL:-admin@neko.io}
       NEKO_ADMIN_PASSWORD: ${NEKO_ADMIN_PASSWORD:-neko12345}
+      NEKO_SECRET_KEY: ${NEKO_SECRET_KEY:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-neko}:${POSTGRES_PASSWORD:-neko}@postgres:5432/${POSTGRES_DB:-neko}?sslmode=disable
       REDIS_URL: redis://redis:6379/0
       NATS_URL: nats://nats:4222
@@ -44,6 +45,11 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-neko}:${POSTGRES_PASSWORD:-neko}@postgres:5432/${POSTGRES_DB:-neko}?sslmode=disable
       NATS_URL: nats://nats:4222
       VM_URL: http://victoriametrics:8428
+      NEKO_SECRET_KEY: ${NEKO_SECRET_KEY:-}
+      # Optional alert notification channels (set in .env to enable):
+      NEKO_ALERT_WEBHOOK: ${NEKO_ALERT_WEBHOOK:-}
+      NEKO_DINGTALK_WEBHOOK: ${NEKO_DINGTALK_WEBHOOK:-}
+      NEKO_WECOM_WEBHOOK: ${NEKO_WECOM_WEBHOOK:-}
     depends_on:
       postgres:
         condition: service_healthy

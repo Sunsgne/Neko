@@ -315,6 +315,50 @@ export async function takeSnapshot(id: string, token?: string): Promise<ConfigSn
   return env.data;
 }
 
+export interface Candidate {
+  address: string;
+  board: string;
+  version: string;
+  arch: string;
+}
+
+export async function discover(
+  body: { cidr: string; port: number; username: string; password: string },
+  token?: string,
+): Promise<Candidate[]> {
+  const env = await request<Candidate[]>("POST", "/api/v1/discover", { token, body });
+  return env.data ?? [];
+}
+
+export interface BatchResult {
+  created: number;
+  enrolled: number;
+  results: Array<{ name: string; device_id?: string; enrolled: boolean; error?: string }>;
+}
+
+export async function batchOnboard(
+  body: { devices: Array<{ name: string; mgmt_address: string; role?: DeviceRole; region?: string }>; username?: string; password?: string },
+  token?: string,
+): Promise<BatchResult> {
+  const env = await request<BatchResult>("POST", "/api/v1/devices/batch", { token, body });
+  return env.data;
+}
+
+export interface AuditEntry {
+  id: string;
+  tenant_id: string;
+  actor_id: string;
+  action: string;
+  object_type: string;
+  object_id: string;
+  at: string;
+}
+
+export async function listAudit(token?: string): Promise<AuditEntry[]> {
+  const env = await request<AuditEntry[]>("GET", "/api/v1/audit", { token });
+  return env.data ?? [];
+}
+
 export async function listLinks(token?: string): Promise<Link[]> {
   const env = await request<Link[]>("GET", "/api/v1/links", { token });
   return env.data ?? [];

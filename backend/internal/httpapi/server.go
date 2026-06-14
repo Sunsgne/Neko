@@ -120,8 +120,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/accel/preview", s.handleAccelPreview)
 	mux.HandleFunc("GET /api/v1/config/sections", s.handleConfigSections)
 
+	// Discovery + batch onboarding.
+	mux.HandleFunc("POST /api/v1/discover", s.handleDiscover)
+	mux.HandleFunc("POST /api/v1/devices/batch", s.handleBatchOnboard)
+
 	// Audit log (operator-scoped query).
 	mux.HandleFunc("GET /api/v1/audit", s.handleListAudit)
+
+	// Server-sent events: live summary stream for the console.
+	mux.HandleFunc("GET /api/v1/events", s.handleEvents)
 
 	// Monitoring read models.
 	mux.HandleFunc("GET /api/v1/links", s.handleListLinks)

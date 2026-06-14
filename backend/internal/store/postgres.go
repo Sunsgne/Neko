@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/neko/sdwan/backend/internal/audit"
 )
 
 // PostgresStore is a pgx-backed Store implementation (T1.1). Multi-tenant
@@ -50,6 +51,48 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 
 // Close releases the connection pool.
 func (s *PostgresStore) Close() { s.pool.Close() }
+
+// AuditRecorder returns a Postgres-backed audit recorder (append-only).
+func (s *PostgresStore) AuditRecorder() audit.Recorder { return &pgAuditRecorder{pool: s.pool} }
+
+type pgAuditRecorder struct{ pool *pgxpool.Pool }
+
+func (r *pgAuditRecorder) Record(ctx context.Context, e audit.Entry) error {
+	before, _ := json.Marshal(e.Before)
+	after, _ := json.Marshal(e.After)
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO audit_logs (id, tenant_id, actor_id, action, object_type, object_id, before, after, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		e.ID, nullable(e.TenantID), e.ActorID, e.Action, e.ObjectType, e.ObjectID, before, after, e.At)
+	return mapPgError(err)
+}
+
+func (r *pgAuditRecorder) List(ctx context.Context, tenantID string, limit int) ([]audit.Entry, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	q := `SELECT id, coalesce(tenant_id,''), coalesce(actor_id,''), action, object_type, coalesce(object_id,''), created_at FROM audit_logs`
+	var args []any
+	if tenantID != "" {
+		q += ` WHERE tenant_id=$1`
+		args = append(args, tenantID)
+	}
+	q += ` ORDER BY created_at DESC LIMIT ` + strconv.Itoa(limit)
+	rows, err := r.pool.Query(ctx, q, args...)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	defer rows.Close()
+	var out []audit.Entry
+	for rows.Next() {
+		var e audit.Entry
+		if err := rows.Scan(&e.ID, &e.TenantID, &e.ActorID, &e.Action, &e.ObjectType, &e.ObjectID, &e.At); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
 
 // Migrate applies pending schema migrations.
 func (s *PostgresStore) Migrate(ctx context.Context) error { return Migrate(ctx, s.pool) }

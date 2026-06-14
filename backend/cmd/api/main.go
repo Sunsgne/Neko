@@ -59,6 +59,12 @@ func main() {
 		cfg.Store = "memory"
 	}
 
+	// Audit: persistent (Postgres) when available, else in-memory.
+	var auditRec audit.Recorder = audit.NewMemoryRecorder()
+	if pg, ok := st.(*store.PostgresStore); ok {
+		auditRec = pg.AuditRecorder()
+	}
+
 	cat := catalog.New()
 	if cfg.Seed {
 		if err := seed.Demo(context.Background(), st, cat); err != nil {
@@ -110,7 +116,7 @@ func main() {
 		Catalog:   cat,
 		Users:     userRepo,
 		Sessions:  sessions,
-		Audit:     audit.NewMemoryRecorder(),
+		Audit:     auditRec,
 		Alerts:    st.Alerts(),
 		VM:        vmetrics.New(cfg.VMURL),
 		IDGen:     idgen.New,
