@@ -36,7 +36,7 @@ services:
   worker:
     build:
       context: ./backend
-    command: ["/app/worker"]
+    entrypoint: ["/app/worker"]
     restart: unless-stopped
     environment:
       NEKO_ENV: production
@@ -53,7 +53,7 @@ services:
   rosim:
     build:
       context: ./backend
-    command: ["/app/rosim"]
+    entrypoint: ["/app/rosim"]
     restart: unless-stopped
     environment:
       ROSIM_ADDR: ":8729"
