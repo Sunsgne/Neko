@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,6 +20,7 @@ type PostgresStore struct {
 	tenants *pgTenantRepo
 	devices *pgDeviceRepo
 	creds   *pgCredentialRepo
+	alerts  *pgAlertRepo
 }
 
 // OpenPostgres connects to PostgreSQL and verifies connectivity.
@@ -38,6 +40,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 		tenants: &pgTenantRepo{pool: pool},
 		devices: &pgDeviceRepo{pool: pool},
 		creds:   &pgCredentialRepo{pool: pool},
+		alerts:  &pgAlertRepo{pool: pool},
 	}, nil
 }
 
@@ -50,6 +53,75 @@ func (s *PostgresStore) Migrate(ctx context.Context) error { return Migrate(ctx,
 func (s *PostgresStore) Tenants() TenantRepository         { return s.tenants }
 func (s *PostgresStore) Devices() DeviceRepository         { return s.devices }
 func (s *PostgresStore) Credentials() CredentialRepository { return s.creds }
+func (s *PostgresStore) Alerts() AlertRepository           { return s.alerts }
+
+type pgAlertRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgAlertRepo) Fire(ctx context.Context, a Alert) (*Alert, bool, error) {
+	// Return existing open alert if present.
+	var id string
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM alerts WHERE device_id=$1 AND code=$2 AND state='firing' LIMIT 1`,
+		nullable(a.DeviceID), a.Code).Scan(&id)
+	if err == nil {
+		a.ID = id
+		a.State = "firing"
+		return &a, false, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, mapPgError(err)
+	}
+	if a.FiredAt.IsZero() {
+		a.FiredAt = time.Now().UTC()
+	}
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO alerts (id, tenant_id, device_id, code, severity, title, detail, state, fired_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,'firing',$8)`,
+		a.ID, nullable(a.TenantID), nullable(a.DeviceID), a.Code, a.Severity, a.Title, a.Detail, a.FiredAt)
+	if err != nil {
+		return nil, false, mapPgError(err)
+	}
+	a.State = "firing"
+	return &a, true, nil
+}
+
+func (r *pgAlertRepo) Resolve(ctx context.Context, deviceID, code string, at time.Time) (bool, error) {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE alerts SET state='resolved', resolved_at=$3
+		 WHERE device_id=$1 AND code=$2 AND state='firing'`,
+		nullable(deviceID), code, at)
+	if err != nil {
+		return false, mapPgError(err)
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
+func (r *pgAlertRepo) List(ctx context.Context, tenantID string, limit int) ([]*Alert, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	q := `SELECT id, coalesce(tenant_id,''), coalesce(device_id,''), code, severity, title, detail, state, fired_at, resolved_at FROM alerts`
+	var args []any
+	if tenantID != "" {
+		q += ` WHERE tenant_id=$1`
+		args = append(args, tenantID)
+	}
+	q += ` ORDER BY (state='firing') DESC, fired_at DESC LIMIT ` + strconv.Itoa(limit)
+	rows, err := r.pool.Query(ctx, q, args...)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	defer rows.Close()
+	var out []*Alert
+	for rows.Next() {
+		var a Alert
+		if err := rows.Scan(&a.ID, &a.TenantID, &a.DeviceID, &a.Code, &a.Severity, &a.Title, &a.Detail, &a.State, &a.FiredAt, &a.ResolvedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, &a)
+	}
+	return out, rows.Err()
+}
 
 type pgCredentialRepo struct{ pool *pgxpool.Pool }
 

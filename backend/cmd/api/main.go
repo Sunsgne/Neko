@@ -109,6 +109,7 @@ func main() {
 		Users:     userRepo,
 		Sessions:  sessions,
 		Audit:     audit.NewMemoryRecorder(),
+		Alerts:    st.Alerts(),
 		IDGen:     idgen.New,
 		Metrics:   metrics.NewRegistry(),
 		StoreKind: cfg.Store,

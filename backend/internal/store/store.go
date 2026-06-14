@@ -8,6 +8,7 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 // ErrNotFound is returned when a requested record does not exist.
@@ -67,9 +68,23 @@ type CredentialRepository interface {
 	Get(ctx context.Context, deviceID string) (*Credential, error)
 }
 
+// AlertRepository persists deduplicated alerts. Fire is idempotent per
+// (device_id, code) while an alert is firing; Resolve closes it.
+type AlertRepository interface {
+	// Fire ensures an open alert exists for (device_id, code). Returns the
+	// alert and whether it was newly created (for notification on transition).
+	Fire(ctx context.Context, a Alert) (*Alert, bool, error)
+	// Resolve closes any open alert for (device_id, code). Returns whether one
+	// was resolved (transition).
+	Resolve(ctx context.Context, deviceID, code string, at time.Time) (bool, error)
+	// List returns alerts scoped to tenant ("" = all), firing first.
+	List(ctx context.Context, tenantID string, limit int) ([]*Alert, error)
+}
+
 // Store aggregates all repositories.
 type Store interface {
 	Tenants() TenantRepository
 	Devices() DeviceRepository
 	Credentials() CredentialRepository
+	Alerts() AlertRepository
 }

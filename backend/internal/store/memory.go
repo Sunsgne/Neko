@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"sort"
+	"strconv"
 	"sync"
+	"time"
 )
 
 // MemoryStore is an in-memory Store implementation used for development,
@@ -12,6 +14,7 @@ type MemoryStore struct {
 	tenants *memTenantRepo
 	devices *memDeviceRepo
 	creds   *memCredentialRepo
+	alerts  *memAlertRepo
 }
 
 // NewMemory builds a ready-to-use in-memory store.
@@ -20,12 +23,79 @@ func NewMemory() *MemoryStore {
 		tenants: &memTenantRepo{items: map[string]*Tenant{}},
 		devices: &memDeviceRepo{items: map[string]*Device{}},
 		creds:   &memCredentialRepo{items: map[string]Credential{}},
+		alerts:  &memAlertRepo{items: map[string]*Alert{}},
 	}
 }
 
 func (m *MemoryStore) Tenants() TenantRepository         { return m.tenants }
 func (m *MemoryStore) Devices() DeviceRepository         { return m.devices }
 func (m *MemoryStore) Credentials() CredentialRepository { return m.creds }
+func (m *MemoryStore) Alerts() AlertRepository           { return m.alerts }
+
+type memAlertRepo struct {
+	mu    sync.RWMutex
+	items map[string]*Alert // id -> alert
+	seq   int
+}
+
+func alertKey(deviceID, code string) string { return deviceID + "\x00" + code }
+
+func (r *memAlertRepo) Fire(_ context.Context, a Alert) (*Alert, bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, ex := range r.items {
+		if ex.State == "firing" && ex.DeviceID == a.DeviceID && ex.Code == a.Code {
+			cp := *ex
+			return &cp, false, nil
+		}
+	}
+	r.seq++
+	a.ID = "al_" + strconv.Itoa(r.seq)
+	a.State = "firing"
+	if a.FiredAt.IsZero() {
+		a.FiredAt = time.Now().UTC()
+	}
+	cp := a
+	r.items[a.ID] = &cp
+	out := a
+	return &out, true, nil
+}
+
+func (r *memAlertRepo) Resolve(_ context.Context, deviceID, code string, at time.Time) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, ex := range r.items {
+		if ex.State == "firing" && ex.DeviceID == deviceID && ex.Code == code {
+			ex.State = "resolved"
+			t := at
+			ex.ResolvedAt = &t
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (r *memAlertRepo) List(_ context.Context, tenantID string, limit int) ([]*Alert, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*Alert, 0, len(r.items))
+	for _, a := range r.items {
+		if tenantID == "" || a.TenantID == tenantID {
+			cp := *a
+			out = append(out, &cp)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].State != out[j].State {
+			return out[i].State == "firing"
+		}
+		return out[i].FiredAt.After(out[j].FiredAt)
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
 
 type memCredentialRepo struct {
 	mu    sync.RWMutex

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/neko/sdwan/backend/internal/config"
+	"github.com/neko/sdwan/backend/internal/idgen"
 	"github.com/neko/sdwan/backend/internal/inventory"
+	"github.com/neko/sdwan/backend/internal/monitoring"
 	"github.com/neko/sdwan/backend/internal/observability"
 	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/secret"
@@ -81,22 +83,40 @@ func pollAll(ctx context.Context, logger interface {
 		logger.Warn("poll: list devices failed", "err", err)
 		return
 	}
-	var polled, online int
+	var polled, online, fired, resolved int
+	th := monitoring.DefaultThresholds()
+	now := time.Now().UTC()
 	for _, d := range devices {
 		if !d.Enrolled {
 			continue
 		}
 		dd, err := svc.Poll(ctx, "", d.ID)
 		if err != nil {
-			continue
+			dd = d // still evaluate (likely offline)
 		}
 		polled++
 		if dd.Status != nil && dd.Status.Online {
 			online++
 		}
+		// Turn health into deduplicated, persisted alerts.
+		for _, c := range monitoring.Evaluate(dd, th) {
+			if c.Active {
+				a := store.Alert{
+					ID: idgen.New("al"), TenantID: dd.TenantID, DeviceID: dd.ID,
+					Code: c.Code, Severity: c.Severity, Title: c.Title, Detail: c.Detail,
+				}
+				if _, created, _ := pg.Alerts().Fire(ctx, a); created {
+					fired++
+				}
+			} else {
+				if ok, _ := pg.Alerts().Resolve(ctx, dd.ID, c.Code, now); ok {
+					resolved++
+				}
+			}
+		}
 	}
 	if polled > 0 {
-		logger.Info("device poll cycle", "polled", polled, "online", online)
+		logger.Info("device poll cycle", "polled", polled, "online", online, "alerts_fired", fired, "alerts_resolved", resolved)
 	}
 }
 

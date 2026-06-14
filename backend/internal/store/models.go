@@ -80,6 +80,20 @@ type CapabilityMatrix struct {
 	SupportsContainer bool                  `json:"supports_container"`
 }
 
+// Alert is a persisted, deduplicated alert raised by monitoring.
+type Alert struct {
+	ID         string     `json:"id"`
+	TenantID   string     `json:"tenant_id"`
+	DeviceID   string     `json:"device_id"`
+	Code       string     `json:"code"`     // rule identifier, e.g. device_offline
+	Severity   string     `json:"severity"` // info | warning | critical
+	Title      string     `json:"title"`
+	Detail     string     `json:"detail"`
+	State      string     `json:"state"` // firing | resolved
+	FiredAt    time.Time  `json:"fired_at"`
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+}
+
 // DeviceStatus is the live operational state captured by the poller.
 type DeviceStatus struct {
 	Online           bool       `json:"online"`

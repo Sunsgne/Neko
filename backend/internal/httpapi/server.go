@@ -11,6 +11,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/metrics"
 	"github.com/neko/sdwan/backend/internal/session"
+	"github.com/neko/sdwan/backend/internal/store"
 	"github.com/neko/sdwan/backend/internal/tenant"
 	"github.com/neko/sdwan/backend/internal/users"
 )
@@ -24,6 +25,7 @@ type Server struct {
 	users     users.Repository
 	sessions  *session.Store
 	audit     audit.Recorder
+	alerts    store.AlertRepository
 	idgen     func(string) string
 	metrics   *metrics.Registry
 	storeKind string
@@ -39,6 +41,7 @@ type Deps struct {
 	Users     users.Repository
 	Sessions  *session.Store
 	Audit     audit.Recorder
+	Alerts    store.AlertRepository
 	IDGen     func(string) string
 	Metrics   *metrics.Registry
 	StoreKind string
@@ -59,6 +62,7 @@ func New(d Deps) *Server {
 		users:     d.Users,
 		sessions:  d.Sessions,
 		audit:     d.Audit,
+		alerts:    d.Alerts,
 		idgen:     d.IDGen,
 		metrics:   m,
 		storeKind: d.StoreKind,

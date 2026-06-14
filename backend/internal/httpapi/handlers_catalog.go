@@ -12,6 +12,17 @@ func (s *Server) handleListLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListAlerts(w http.ResponseWriter, r *http.Request) {
+	// Prefer persisted, monitoring-generated alerts; fall back to catalog
+	// (demo) when no alert store is configured.
+	if s.alerts != nil {
+		items, err := s.alerts.List(r.Context(), tenantFrom(r.Context()), 200)
+		if err != nil {
+			respondServiceError(w, err)
+			return
+		}
+		respondList(w, items, Meta{Page: 1, PageSize: len(items), Total: len(items)})
+		return
+	}
 	if s.catalog == nil {
 		respondList(w, []any{}, Meta{Page: 1, PageSize: 20, Total: 0})
 		return

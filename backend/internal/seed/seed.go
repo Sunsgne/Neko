@@ -92,6 +92,14 @@ func Demo(ctx context.Context, st store.Store, cat *catalog.Catalog) error {
 		{ID: "lnk_ov_shbj", TenantID: "ten_acme", Name: "Overlay 上海↔北京", Kind: "overlay", ISP: "", Role: "primary", Status: "up", LatencyMs: 11, JitterMs: 3, Loss: 0, Score: 96},
 	})
 
+	// Seed persisted alerts (the live source after monitoring runs).
+	for _, a := range []store.Alert{
+		{ID: "al_seed1", TenantID: "ten_globex", DeviceID: "dev_gzcore", Code: "link_down", Severity: "critical", Title: "广州-电信 链路中断", Detail: "丢包 4.5%，已本地切换备线"},
+		{ID: "al_seed2", TenantID: "ten_acme", DeviceID: "dev_bj02", Code: "iface_util", Severity: "warning", Title: "edge-bj-02 sfp1 利用率 > 85%", Detail: "持续 6 分钟"},
+	} {
+		_, _, _ = st.Alerts().Fire(ctx, a)
+	}
+
 	cat.ReplaceAlerts([]catalog.Alert{
 		{ID: "al_1", TenantID: "ten_globex", DeviceID: "dev_gzcore", Severity: "critical", Title: "广州-电信 链路中断", Detail: "丢包 4.5%，评分 38，已本地切换备线", State: "firing", FiredAt: "2026-06-14T03:51:00Z"},
 		{ID: "al_2", TenantID: "ten_acme", DeviceID: "dev_bj02", Severity: "warning", Title: "edge-bj-02 sfp1 利用率 > 85%", Detail: "持续 6 分钟", State: "firing", FiredAt: "2026-06-14T03:58:00Z"},
