@@ -9,6 +9,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/auth"
 	"github.com/neko/sdwan/backend/internal/catalog"
 	"github.com/neko/sdwan/backend/internal/inventory"
+	"github.com/neko/sdwan/backend/internal/metrics"
 	"github.com/neko/sdwan/backend/internal/session"
 	"github.com/neko/sdwan/backend/internal/tenant"
 	"github.com/neko/sdwan/backend/internal/users"
@@ -24,6 +25,7 @@ type Server struct {
 	sessions  *session.Store
 	audit     audit.Recorder
 	idgen     func(string) string
+	metrics   *metrics.Registry
 	storeKind string
 	auth      auth.Authenticator // nil = auth disabled
 }
@@ -38,12 +40,17 @@ type Deps struct {
 	Sessions  *session.Store
 	Audit     audit.Recorder
 	IDGen     func(string) string
+	Metrics   *metrics.Registry
 	StoreKind string
 	Auth      auth.Authenticator
 }
 
 // New builds a Server.
 func New(d Deps) *Server {
+	m := d.Metrics
+	if m == nil {
+		m = metrics.NewRegistry()
+	}
 	return &Server{
 		logger:    d.Logger,
 		tenants:   d.Tenants,
@@ -53,6 +60,7 @@ func New(d Deps) *Server {
 		sessions:  d.Sessions,
 		audit:     d.Audit,
 		idgen:     d.IDGen,
+		metrics:   m,
 		storeKind: d.StoreKind,
 		auth:      d.Auth,
 	}
@@ -63,9 +71,10 @@ func New(d Deps) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	// Health
+	// Health & metrics
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("GET /readyz", s.handleReadyz)
+	mux.HandleFunc("GET /metrics", s.handleMetrics)
 
 	// Auth
 	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
@@ -100,6 +109,7 @@ func (s *Server) Handler() http.Handler {
 	mws := []func(http.Handler) http.Handler{
 		recoverer(s.logger),
 		requestID,
+		instrument(s.metrics),
 		logging(s.logger),
 		cors,
 	}

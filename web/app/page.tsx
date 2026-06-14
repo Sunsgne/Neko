@@ -1,13 +1,13 @@
 import { Router, Activity, AlertTriangle, Gauge, ArrowUpRight } from "lucide-react";
 import { Card, CardHeader, Kpi, Badge, StatusDot } from "@/components/ui";
-import { listDevices, type Device } from "@/lib/api";
-import { serverToken } from "@/lib/server-session";
+import { listDevices, listAlerts, listLinks, type Device, type Alert, type Link } from "@/lib/api";
+import { serverToken, serverIdentity } from "@/lib/server-session";
 
 export const dynamic = "force-dynamic";
 
-async function safeDevices(): Promise<Device[]> {
+async function safe<T>(p: Promise<T[]>): Promise<T[]> {
   try {
-    return await listDevices(serverToken());
+    return await p;
   } catch {
     return [];
   }
@@ -21,28 +21,50 @@ const recentEvents = [
 ];
 
 export default async function DashboardPage() {
-  const devices = await safeDevices();
+  const token = serverToken();
+  const { role } = serverIdentity();
+  const [devices, alerts, links] = await Promise.all([
+    safe<Device>(listDevices(token)),
+    safe<Alert>(listAlerts(token)),
+    safe<Link>(listLinks(token)),
+  ]);
+
   const total = devices.length;
   const managed = devices.filter((d) => d.trust_state === "managed").length;
   const onlineRate = total ? Math.round((managed / total) * 100) : 99;
+  const firing = alerts.filter((a) => a.state === "firing");
+  const critical = firing.filter((a) => a.severity === "critical").length;
+  const warnings = firing.filter((a) => a.severity === "warning").length;
+  const avgScore = links.length
+    ? Math.round(links.reduce((s, l) => s + l.score, 0) / links.length)
+    : 0;
+  const dist = {
+    excellent: links.filter((l) => l.score >= 90).length,
+    good: links.filter((l) => l.score >= 75 && l.score < 90).length,
+    degraded: links.filter((l) => l.score >= 60 && l.score < 75).length,
+    down: links.filter((l) => l.score < 60).length,
+  };
+  const pct = (n: number) => (links.length ? Math.round((n / links.length) * 100) : 0);
+  const scope = role === "tenant" ? "租户总览" : "运营总览";
 
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">运营总览</h1>
-          <p className="mt-1 text-sm text-muted">全局网络健康、流量与告警实时视图</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{scope}</h1>
+          <p className="mt-1 text-sm text-muted">网络健康、链路质量与告警实时视图</p>
         </div>
-        <Badge tone="success">
-          <StatusDot tone="success" /> 系统正常
+        <Badge tone={critical > 0 ? "danger" : firing.length > 0 ? "warning" : "success"}>
+          <StatusDot tone={critical > 0 ? "danger" : firing.length > 0 ? "warning" : "success"} />
+          {critical > 0 ? "存在严重告警" : firing.length > 0 ? "存在告警" : "系统正常"}
         </Badge>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="纳管设备" value={String(total || 128)} delta="较上周 +6" tone="primary" icon={<Router className="h-5 w-5" />} />
-        <Kpi label="在线率" value={`${onlineRate}%`} delta="SLA 99.9%" tone="success" icon={<Gauge className="h-5 w-5" />} />
-        <Kpi label="活跃告警" value="3" delta="1 严重 · 2 警告" tone="warning" icon={<AlertTriangle className="h-5 w-5" />} />
-        <Kpi label="聚合带宽" value="42.7 Gbps" delta="峰值 51.2 Gbps" tone="primary" icon={<Activity className="h-5 w-5" />} />
+        <Kpi label="纳管设备" value={String(total)} delta={`${managed} 已托管`} tone="primary" icon={<Router className="h-5 w-5" />} />
+        <Kpi label="在线率" value={`${onlineRate}%`} delta="trust=managed 占比" tone="success" icon={<Gauge className="h-5 w-5" />} />
+        <Kpi label="活跃告警" value={String(firing.length)} delta={`${critical} 严重 · ${warnings} 警告`} tone={firing.length > 0 ? "warning" : "success"} icon={<AlertTriangle className="h-5 w-5" />} />
+        <Kpi label="链路均分" value={String(avgScore)} delta={`${links.length} 条链路`} tone="primary" icon={<Activity className="h-5 w-5" />} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -54,10 +76,10 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader title="链路质量分布" subtitle="按评分" />
           <div className="space-y-3">
-            <ScoreBar label="优 (90-100)" value={72} tone="success" />
-            <ScoreBar label="良 (75-89)" value={21} tone="primary" />
-            <ScoreBar label="降级 (60-74)" value={5} tone="warning" />
-            <ScoreBar label="故障 (<60)" value={2} tone="danger" />
+            <ScoreBar label="优 (90-100)" value={pct(dist.excellent)} tone="success" />
+            <ScoreBar label="良 (75-89)" value={pct(dist.good)} tone="primary" />
+            <ScoreBar label="降级 (60-74)" value={pct(dist.degraded)} tone="warning" />
+            <ScoreBar label="故障 (<60)" value={pct(dist.down)} tone="danger" />
           </div>
         </Card>
       </div>

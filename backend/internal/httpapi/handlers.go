@@ -17,6 +17,11 @@ func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
 	respondData(w, http.StatusOK, map[string]string{"status": "ready", "store": s.storeKind})
 }
 
+func (s *Server) handleMetrics(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	_, _ = w.Write([]byte(s.metrics.Expose()))
+}
+
 func (s *Server) handleListTenants(w http.ResponseWriter, r *http.Request) {
 	page := pageFrom(r)
 	items, total, err := s.tenants.List(r.Context(), page)

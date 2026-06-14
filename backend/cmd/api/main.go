@@ -17,6 +17,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/httpapi"
 	"github.com/neko/sdwan/backend/internal/idgen"
 	"github.com/neko/sdwan/backend/internal/inventory"
+	"github.com/neko/sdwan/backend/internal/metrics"
 	"github.com/neko/sdwan/backend/internal/observability"
 	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/seed"
@@ -95,6 +96,7 @@ func main() {
 		Sessions:  sessions,
 		Audit:     audit.NewMemoryRecorder(),
 		IDGen:     idgen.New,
+		Metrics:   metrics.NewRegistry(),
 		StoreKind: cfg.Store,
 		Auth:      authn,
 	})

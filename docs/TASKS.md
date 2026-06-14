@@ -61,9 +61,9 @@
 - [x] T8.3 切换决策（linkqos.Controller）：主备 + 自动失败回切 + 防震荡（滞后阈值 + MinDown/MinUp + 最小驻留 MinDwell）
 
 ## Epic 9 — 可观测性与大盘
-- [ ] T9.1 OpenTelemetry（trace/metrics/logs）贯通
-- [ ] T9.2 运营大盘 + 租户大盘前端
-- [ ] T9.3 拓扑可视化（React Flow）
+- [x] T9.1 可观测性：metrics 注册表 + Prometheus /metrics 端点（VictoriaMetrics 可抓取）+ 请求埋点中间件 + 结构化日志（request_id）；OTLP trace 导出为后续增强
+- [x] T9.2 运营/租户大盘前端（按角色标题，KPI 取自真实 API：设备/在线率/告警/链路均分 + 质量分布）
+- [x] T9.3 拓扑可视化（自绘 SVG 中心辐射图，按链路状态着色/评分调线宽/Overlay 虚线，无额外依赖）
 
 ## Epic 10 — 交付与运维
 - [x] T10.1 GitHub Actions CI（make check）

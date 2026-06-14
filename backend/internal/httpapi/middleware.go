@@ -6,11 +6,31 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/neko/sdwan/backend/internal/auth"
+	"github.com/neko/sdwan/backend/internal/metrics"
 )
+
+// instrument records request counts and latency into the metrics registry.
+func instrument(reg *metrics.Registry) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/metrics" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			start := time.Now()
+			sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+			next.ServeHTTP(sw, r)
+			labels := map[string]string{"method": r.Method, "status": strconv.Itoa(sw.status)}
+			reg.IncCounter("neko_http_requests_total", labels)
+			reg.AddCounter("neko_http_request_seconds_sum", map[string]string{"method": r.Method}, time.Since(start).Seconds())
+		})
+	}
+}
 
 type ctxKey string
 
@@ -26,9 +46,9 @@ const (
 func authenticate(a auth.Authenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Health and login/logout endpoints are always public.
+			// Health, metrics and login/logout endpoints are always public.
 			switch r.URL.Path {
-			case "/healthz", "/readyz", "/api/v1/auth/login", "/api/v1/auth/logout":
+			case "/healthz", "/readyz", "/metrics", "/api/v1/auth/login", "/api/v1/auth/logout":
 				next.ServeHTTP(w, r)
 				return
 			}
