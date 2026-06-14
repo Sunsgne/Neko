@@ -29,9 +29,9 @@ Go 1.22+（后端/Worker） · Next.js 14 + TypeScript（Web） · PostgreSQL 16
 | --- | --- |
 | ![login](docs/screenshots/login.png) | ![dashboard](docs/screenshots/dashboard.png) |
 
-| 设备纳管 | 租户管理 |
+| 设备纳管（支持单台/批量删除、实时状态） | 租户管理 |
 | --- | --- |
-| ![devices](docs/screenshots/devices.png) | ![tenants](docs/screenshots/tenants.png) |
+| ![devices](docs/screenshots/devices-live.png) | ![tenants](docs/screenshots/tenants.png) |
 
 | 站点编排 · 一键下发（链路选择 + 路由生成） |
 | --- |
