@@ -21,8 +21,9 @@ const (
 // Server is a configured upstream DNS server in the pool.
 type Server struct {
 	ID          string `json:"id"`
-	Address     string `json:"address"`
-	Region      string `json:"region"` // province/region code, e.g. "cn-east", "shanghai"
+	Kind        string `json:"kind"`    // "udp" (default) | "doh"
+	Address     string `json:"address"` // IP (udp) or DoH URL (doh)
+	Region      string `json:"region"`  // province/region code, e.g. "cn-east", "shanghai"
 	ISP         ISP    `json:"isp"`
 	SupportsECS bool   `json:"supports_ecs"`
 	Healthy     bool   `json:"healthy"`

@@ -38,6 +38,28 @@ func TestBuildConfigPrimaryAndSplit(t *testing.T) {
 	}
 }
 
+func TestBuildConfigDoH(t *testing.T) {
+	st := BuildConfig([]Server{
+		{Kind: "udp", Address: "223.5.5.5"},
+		{Kind: "doh", Address: "https://dns.alidns.com/dns-query"},
+	}, nil)
+	var settings map[string]string
+	for _, s := range st.Statements {
+		if s.Path == "/ip/dns" {
+			settings = s.Attributes
+		}
+	}
+	if settings["servers"] != "223.5.5.5" {
+		t.Errorf("plain server should be in servers, got %q", settings["servers"])
+	}
+	if settings["use-doh-server"] != "https://dns.alidns.com/dns-query" {
+		t.Errorf("DoH should set use-doh-server, got %q", settings["use-doh-server"])
+	}
+	if settings["verify-doh-cert"] != "yes" {
+		t.Error("DoH should verify cert")
+	}
+}
+
 func TestCheckerHandlesUnreachable(t *testing.T) {
 	c := NewChecker()
 	c.Timeout = 500_000_000 // 500ms

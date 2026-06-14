@@ -113,6 +113,8 @@ func Demo(ctx context.Context, st store.Store, cat *catalog.Catalog) error {
 		{ID: "dns_mob_gz", Address: "211.136.192.6", Region: "guangzhou", ISP: "mobile", Healthy: true, LatencyMs: 12},
 		{ID: "dns_ali", Address: "223.5.5.5", Region: "", ISP: "public", SupportsECS: true, Healthy: true, LatencyMs: 6},
 		{ID: "dns_114", Address: "114.114.114.114", Region: "", ISP: "public", Healthy: true, LatencyMs: 10},
+		{ID: "doh_ali", Kind: "doh", Address: "https://dns.alidns.com/dns-query", Region: "", ISP: "public", SupportsECS: true, Healthy: true, LatencyMs: 7},
+		{ID: "doh_cf", Kind: "doh", Address: "https://cloudflare-dns.com/dns-query", Region: "", ISP: "public", Healthy: true, LatencyMs: 9},
 	} {
 		_ = st.Dns().Create(ctx, d)
 	}

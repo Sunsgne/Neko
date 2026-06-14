@@ -11,6 +11,7 @@ import (
 )
 
 type createDNSRequest struct {
+	Kind        string `json:"kind"` // udp | doh
 	Address     string `json:"address"`
 	Region      string `json:"region"`
 	ISP         string `json:"isp"`
@@ -29,9 +30,14 @@ func (s *Server) handleCreateDNSServer(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid_input", "address is required")
 		return
 	}
+	kind := req.Kind
+	if kind != "doh" {
+		kind = "udp"
+	}
 	srv := store.DNSServer{
 		ID:          s.idgen("dns"),
 		TenantID:    tenantFrom(r.Context()),
+		Kind:        kind,
 		Address:     strings.TrimSpace(req.Address),
 		Region:      strings.TrimSpace(req.Region),
 		ISP:         strings.TrimSpace(req.ISP),
@@ -59,6 +65,9 @@ func (s *Server) handleDeleteDNSServer(w http.ResponseWriter, r *http.Request) {
 }
 
 type dnsApplyRequest struct {
+	// ServerIDs selects pool entries (preserves kind: udp/doh). Falls back to
+	// ServerAddresses (treated as plain UDP) for backward compatibility.
+	ServerIDs       []string `json:"server_ids"`
 	ServerAddresses []string `json:"server_addresses"`
 	Username        string   `json:"username"`
 	Password        string   `json:"password"`
@@ -78,13 +87,30 @@ func (s *Server) handleDNSApply(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid_json", "request body is not valid JSON")
 		return
 	}
-	if len(req.ServerAddresses) == 0 {
+	var primary []dns.Server
+	if len(req.ServerIDs) > 0 {
+		pool, err := s.dns.List(r.Context(), tenantFrom(r.Context()))
+		if err != nil {
+			respondServiceError(w, err)
+			return
+		}
+		byID := map[string]*store.DNSServer{}
+		for _, p := range pool {
+			byID[p.ID] = p
+		}
+		for _, id := range req.ServerIDs {
+			if p, ok := byID[id]; ok {
+				primary = append(primary, dns.Server{Kind: p.Kind, Address: p.Address})
+			}
+		}
+	} else {
+		for _, a := range req.ServerAddresses {
+			primary = append(primary, dns.Server{Kind: "udp", Address: a})
+		}
+	}
+	if len(primary) == 0 {
 		respondError(w, http.StatusBadRequest, "empty", "请至少选择一个 DNS 服务器")
 		return
-	}
-	primary := make([]dns.Server, 0, len(req.ServerAddresses))
-	for _, a := range req.ServerAddresses {
-		primary = append(primary, dns.Server{Address: a})
 	}
 	desired := dns.BuildConfig(primary, nil)
 
@@ -100,6 +126,6 @@ func (s *Server) handleDNSApply(w http.ResponseWriter, r *http.Request) {
 		respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan, "error": err.Error()})
 		return
 	}
-	s.record(r.Context(), "dns_apply", "device", dev.ID, map[string]string{"servers": strings.Join(req.ServerAddresses, ",")})
+	s.record(r.Context(), "dns_apply", "device", dev.ID, map[string]string{"count": itoa(len(primary))})
 	respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan})
 }

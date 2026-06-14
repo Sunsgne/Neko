@@ -131,6 +131,7 @@ export interface Alert {
 export interface DNSServer {
   id: string;
   tenant_id: string;
+  kind: string; // udp | doh
   address: string;
   region: string;
   isp: string;
@@ -405,7 +406,7 @@ export async function listDNSServers(token?: string): Promise<DNSServer[]> {
 }
 
 export async function createDNSServer(
-  body: { address: string; region?: string; isp?: string; supports_ecs?: boolean; latency_ms?: number },
+  body: { kind?: string; address: string; region?: string; isp?: string; supports_ecs?: boolean; latency_ms?: number },
   token?: string,
 ): Promise<DNSServer> {
   const env = await request<DNSServer>("POST", "/api/v1/dns/servers", { token, body });
@@ -426,7 +427,7 @@ export interface DNSApplyResult {
 
 export async function applyDNS(
   deviceId: string,
-  body: { server_addresses: string[]; username?: string; password?: string; dry_run: boolean },
+  body: { server_ids?: string[]; server_addresses?: string[]; username?: string; password?: string; dry_run: boolean },
   token?: string,
 ): Promise<DNSApplyResult> {
   const env = await request<DNSApplyResult>("POST", `/api/v1/devices/${deviceId}/dns`, { token, body });

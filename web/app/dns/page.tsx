@@ -26,6 +26,7 @@ export default function DnsPage() {
   const [busy, setBusy] = React.useState(false);
 
   // add form
+  const [kind, setKind] = React.useState<"udp" | "doh">("udp");
   const [addr, setAddr] = React.useState("");
   const [isp, setIsp] = React.useState("public");
   const [region, setRegion] = React.useState("");
@@ -48,7 +49,7 @@ export default function DnsPage() {
     setError(null);
     setBusy(true);
     try {
-      await createDNSServer({ address: addr.trim(), isp, region: region.trim(), supports_ecs: ecs }, currentToken());
+      await createDNSServer({ kind, address: addr.trim(), isp, region: region.trim(), supports_ecs: ecs }, currentToken());
       setAddr(""); setRegion(""); setEcs(false);
       await reload();
     } catch (err) {
@@ -64,9 +65,9 @@ export default function DnsPage() {
 
   async function deliver(dryRun: boolean) {
     setError(null);
-    const addrs = servers.filter((s) => sel[s.id]).map((s) => s.address);
+    const ids = servers.filter((s) => sel[s.id]).map((s) => s.id);
     if (!deviceId) { setError("请选择目标设备"); return; }
-    if (addrs.length === 0) { setError("请勾选要下发的 DNS 服务器"); return; }
+    if (ids.length === 0) { setError("请勾选要下发的 DNS 服务器"); return; }
     let creds: { u: string; p: string } | undefined;
     if (!dryRun) {
       const u = window.prompt("设备登录用户名（用于下发，不保存）", "admin");
@@ -76,7 +77,7 @@ export default function DnsPage() {
     }
     setBusy(true);
     try {
-      setResult(await applyDNS(deviceId, { server_addresses: addrs, username: creds?.u, password: creds?.p, dry_run: dryRun }, currentToken()));
+      setResult(await applyDNS(deviceId, { server_ids: ids, username: creds?.u, password: creds?.p, dry_run: dryRun }, currentToken()));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "下发失败");
     } finally { setBusy(false); }
@@ -93,8 +94,12 @@ export default function DnsPage() {
 
       <Card className="space-y-4">
         <CardHeader title="添加 DNS 服务器" />
-        <form onSubmit={add} className="grid grid-cols-1 gap-3 sm:grid-cols-5">
-          <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="地址，如 223.5.5.5" required
+        <form onSubmit={add} className="grid grid-cols-1 gap-3 sm:grid-cols-6">
+          <select value={kind} onChange={(e) => setKind(e.target.value as "udp" | "doh")} className="rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-primary">
+            <option value="udp">普通 UDP</option><option value="doh">DoH (HTTPS)</option>
+          </select>
+          <input value={addr} onChange={(e) => setAddr(e.target.value)} required
+            placeholder={kind === "doh" ? "DoH URL，如 https://dns.alidns.com/dns-query" : "地址，如 223.5.5.5"}
             className="rounded-lg border border-border bg-elevated px-3 py-2 font-mono text-sm outline-none focus:border-primary sm:col-span-2" />
           <select value={isp} onChange={(e) => setIsp(e.target.value)} className="rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-primary">
             <option value="public">公共</option><option value="telecom">电信</option><option value="unicom">联通</option><option value="mobile">移动</option><option value="edu">教育网</option>
@@ -104,7 +109,7 @@ export default function DnsPage() {
           <button type="submit" disabled={busy} className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} 添加
           </button>
-          <label className="flex items-center gap-2 text-sm sm:col-span-5"><input type="checkbox" checked={ecs} onChange={(e) => setEcs(e.target.checked)} /> 支持 ECS（EDNS Client Subnet）</label>
+          <label className="flex items-center gap-2 text-sm sm:col-span-6"><input type="checkbox" checked={ecs} onChange={(e) => setEcs(e.target.checked)} /> 支持 ECS（EDNS Client Subnet）</label>
         </form>
         {error && <p className="text-sm text-danger">{error}</p>}
       </Card>
@@ -117,6 +122,7 @@ export default function DnsPage() {
               <thead>
                 <tr className="border-y border-border text-left text-xs uppercase tracking-wide text-muted">
                   <th className="w-10 px-5 py-3"></th>
+                  <th className="px-3 py-3 font-medium">类型</th>
                   <th className="px-3 py-3 font-medium">地址</th>
                   <th className="px-3 py-3 font-medium">运营商</th>
                   <th className="px-3 py-3 font-medium">地域</th>
@@ -129,7 +135,8 @@ export default function DnsPage() {
                 {servers.map((s) => (
                   <tr key={s.id} className="border-b border-border/50 hover:bg-elevated/40">
                     <td className="px-5 py-3"><input type="checkbox" checked={!!sel[s.id]} onChange={(e) => setSel((x) => ({ ...x, [s.id]: e.target.checked }))} /></td>
-                    <td className="px-3 py-3 font-mono text-xs">{s.address}</td>
+                    <td className="px-3 py-3">{s.kind === "doh" ? <Badge tone="primary">DoH</Badge> : <span className="text-xs text-muted">UDP</span>}</td>
+                    <td className="px-3 py-3 max-w-[260px] truncate font-mono text-xs">{s.address}</td>
                     <td className="px-3 py-3">{ispLabel[s.isp] ?? s.isp}</td>
                     <td className="px-3 py-3 text-muted">{s.region || "anycast"}</td>
                     <td className="px-3 py-3">{s.supports_ecs ? <Badge tone="primary">ECS</Badge> : <span className="text-muted">—</span>}</td>
@@ -139,7 +146,7 @@ export default function DnsPage() {
                     </td>
                   </tr>
                 ))}
-                {servers.length === 0 && <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-muted">DNS 池为空，请在上方添加。</td></tr>}
+                {servers.length === 0 && <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-muted">DNS 池为空，请在上方添加。</td></tr>}
               </tbody>
             </table>
           </div>

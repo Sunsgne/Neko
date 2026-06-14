@@ -110,10 +110,14 @@ func (s *PostgresStore) Dns() DNSRepository                  { return s.dns }
 type pgDNSRepo struct{ pool *pgxpool.Pool }
 
 func (r *pgDNSRepo) Create(ctx context.Context, s DNSServer) error {
+	kind := s.Kind
+	if kind == "" {
+		kind = "udp"
+	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO dns_servers (id, tenant_id, address, region, isp, supports_ecs, healthy, latency_ms)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		s.ID, nullable(s.TenantID), s.Address, s.Region, s.ISP, s.SupportsECS, s.Healthy, s.LatencyMs)
+		`INSERT INTO dns_servers (id, tenant_id, kind, address, region, isp, supports_ecs, healthy, latency_ms)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		s.ID, nullable(s.TenantID), kind, s.Address, s.Region, s.ISP, s.SupportsECS, s.Healthy, s.LatencyMs)
 	return mapPgError(err)
 }
 
@@ -123,11 +127,11 @@ func (r *pgDNSRepo) List(ctx context.Context, tenantID string) ([]*DNSServer, er
 	var err error
 	if tenantID == "" {
 		rows, err = r.pool.Query(ctx,
-			`SELECT id, coalesce(tenant_id,''), address, region, isp, supports_ecs, healthy, latency_ms, created_at
+			`SELECT id, coalesce(tenant_id,''), kind, address, region, isp, supports_ecs, healthy, latency_ms, created_at
 			 FROM dns_servers ORDER BY latency_ms ASC`)
 	} else {
 		rows, err = r.pool.Query(ctx,
-			`SELECT id, coalesce(tenant_id,''), address, region, isp, supports_ecs, healthy, latency_ms, created_at
+			`SELECT id, coalesce(tenant_id,''), kind, address, region, isp, supports_ecs, healthy, latency_ms, created_at
 			 FROM dns_servers WHERE tenant_id IS NULL OR tenant_id=$1 ORDER BY latency_ms ASC`, tenantID)
 	}
 	if err != nil {
@@ -137,7 +141,7 @@ func (r *pgDNSRepo) List(ctx context.Context, tenantID string) ([]*DNSServer, er
 	var out []*DNSServer
 	for rows.Next() {
 		var s DNSServer
-		if err := rows.Scan(&s.ID, &s.TenantID, &s.Address, &s.Region, &s.ISP, &s.SupportsECS, &s.Healthy, &s.LatencyMs, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.TenantID, &s.Kind, &s.Address, &s.Region, &s.ISP, &s.SupportsECS, &s.Healthy, &s.LatencyMs, &s.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, &s)

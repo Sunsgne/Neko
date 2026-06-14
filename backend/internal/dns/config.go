@@ -13,22 +13,33 @@ type SplitRule struct {
 	Servers     []string // upstream DNS addresses for matched domains
 }
 
-// BuildConfig produces RouterOS /ip/dns statements: a primary server set plus
-// optional per-domain forwarding rules (/ip/dns/forwarders + static matchers).
+// BuildConfig produces RouterOS /ip/dns statements: plain (UDP) servers go
+// into `servers`, while a DoH (DNS over HTTPS) server sets `use-doh-server` +
+// `verify-doh-cert` (RouterOS supports one DoH endpoint). Optional per-domain
+// forwarding rules are appended.
 func BuildConfig(primary []Server, splits []SplitRule) configengine.State {
 	var sts []configengine.Statement
 
 	addrs := make([]string, 0, len(primary))
+	doh := ""
 	for _, s := range primary {
+		if s.Kind == "doh" {
+			if doh == "" {
+				doh = s.Address
+			}
+			continue
+		}
 		addrs = append(addrs, s.Address)
 	}
-	sts = append(sts, configengine.Statement{
-		Path: "/ip/dns", Key: "settings",
-		Attributes: map[string]string{
-			"servers":               strings.Join(addrs, ","),
-			"allow-remote-requests": "yes",
-		},
-	})
+	settings := map[string]string{"allow-remote-requests": "yes"}
+	if len(addrs) > 0 {
+		settings["servers"] = strings.Join(addrs, ",")
+	}
+	if doh != "" {
+		settings["use-doh-server"] = doh
+		settings["verify-doh-cert"] = "yes"
+	}
+	sts = append(sts, configengine.Statement{Path: "/ip/dns", Key: "settings", Attributes: settings})
 
 	for _, rule := range splits {
 		sts = append(sts, configengine.Statement{

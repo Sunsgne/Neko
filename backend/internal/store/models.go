@@ -84,7 +84,8 @@ type CapabilityMatrix struct {
 type DNSServer struct {
 	ID          string    `json:"id"`
 	TenantID    string    `json:"tenant_id"`
-	Address     string    `json:"address"`
+	Kind        string    `json:"kind"`    // udp | doh
+	Address     string    `json:"address"` // IP (udp) or DoH URL (doh)
 	Region      string    `json:"region"`
 	ISP         string    `json:"isp"` // telecom | unicom | mobile | edu | public
 	SupportsECS bool      `json:"supports_ecs"`
