@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
-import { getDevice, type Device } from "@/lib/api";
+import { getDevice, getDeviceMetrics, type Device, type DeviceMetrics } from "@/lib/api";
 import { serverToken } from "@/lib/server-session";
 import { DeviceActions } from "@/components/device-actions";
+import { MetricChart } from "@/components/metric-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,10 @@ function bytes(n?: number): string {
 export default async function DeviceDetailPage({ params }: { params: { id: string } }) {
   let d: Device | null = null;
   let err: string | null = null;
+  let metrics: DeviceMetrics | null = null;
   try {
     d = await getDevice(params.id, serverToken());
+    metrics = await getDeviceMetrics(params.id, serverToken()).catch(() => null);
   } catch (e) {
     err = e instanceof Error ? e.message : "加载失败";
   }
@@ -104,6 +107,16 @@ export default async function DeviceDetailPage({ params }: { params: { id: strin
           )}
         </Card>
       </div>
+
+      {d.enrolled && (
+        <Card>
+          <CardHeader title="性能历史" subtitle={metrics?.enabled ? "来自 VictoriaMetrics · 最近 1 小时" : "未启用时序后端"} />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <MetricChart series={metrics?.series?.find((s) => s.name === "cpu")} label="CPU 负载" color="hsl(199 89% 52%)" />
+            <MetricChart series={metrics?.series?.find((s) => s.name === "mem")} label="内存使用" color="hsl(265 89% 65%)" />
+          </div>
+        </Card>
+      )}
 
       {cap?.interfaces && cap.interfaces.length > 0 && (
         <Card className="p-0">

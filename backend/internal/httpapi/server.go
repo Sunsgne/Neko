@@ -14,6 +14,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/store"
 	"github.com/neko/sdwan/backend/internal/tenant"
 	"github.com/neko/sdwan/backend/internal/users"
+	"github.com/neko/sdwan/backend/internal/vmetrics"
 )
 
 // Server holds dependencies for the HTTP API.
@@ -26,6 +27,7 @@ type Server struct {
 	sessions  *session.Store
 	audit     audit.Recorder
 	alerts    store.AlertRepository
+	vm        *vmetrics.Client
 	idgen     func(string) string
 	metrics   *metrics.Registry
 	storeKind string
@@ -42,6 +44,7 @@ type Deps struct {
 	Sessions  *session.Store
 	Audit     audit.Recorder
 	Alerts    store.AlertRepository
+	VM        *vmetrics.Client
 	IDGen     func(string) string
 	Metrics   *metrics.Registry
 	StoreKind string
@@ -63,6 +66,7 @@ func New(d Deps) *Server {
 		sessions:  d.Sessions,
 		audit:     d.Audit,
 		alerts:    d.Alerts,
+		vm:        d.VM,
 		idgen:     d.IDGen,
 		metrics:   m,
 		storeKind: d.StoreKind,
@@ -101,6 +105,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/devices/{id}/enroll", s.handleEnroll)
 	mux.HandleFunc("POST /api/v1/devices/{id}/poll", s.handlePoll)
 	// Full-function configuration over REST (no device login required).
+	mux.HandleFunc("GET /api/v1/devices/{id}/metrics", s.handleDeviceMetrics)
 	mux.HandleFunc("GET /api/v1/devices/{id}/config", s.handleSnapshotConfig)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/config", s.handlePushConfig)
 	// Unified orchestration: link selection + acceleration → preview/deliver.

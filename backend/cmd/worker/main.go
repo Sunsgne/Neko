@@ -18,6 +18,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/secret"
 	"github.com/neko/sdwan/backend/internal/store"
+	"github.com/neko/sdwan/backend/internal/vmetrics"
 )
 
 func main() {
@@ -53,19 +54,21 @@ func main() {
 		Now:         func() time.Time { return time.Now().UTC() },
 	})
 
+	vm := vmetrics.New(cfg.VMURL)
+
 	interval := 30 * time.Second
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	logger.Info("device health poller running", "interval", interval.String())
+	logger.Info("device health poller running", "interval", interval.String(), "vm", vm.Enabled())
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	pollAll(context.Background(), logger, svc, pg)
+	pollAll(context.Background(), logger, svc, pg, vm)
 	for {
 		select {
 		case <-ticker.C:
-			pollAll(context.Background(), logger, svc, pg)
+			pollAll(context.Background(), logger, svc, pg, vm)
 		case <-stop:
 			logger.Info("worker stopped")
 			return
@@ -76,7 +79,7 @@ func main() {
 func pollAll(ctx context.Context, logger interface {
 	Info(string, ...any)
 	Warn(string, ...any)
-}, svc *inventory.Service, pg *store.PostgresStore) {
+}, svc *inventory.Service, pg *store.PostgresStore, vm *vmetrics.Client) {
 	// Operator scope ("" tenant) lists all devices.
 	devices, _, err := pg.Devices().List(ctx, "", store.Page{Number: 1, Size: 1000})
 	if err != nil {
@@ -97,6 +100,19 @@ func pollAll(ctx context.Context, logger interface {
 		polled++
 		if dd.Status != nil && dd.Status.Online {
 			online++
+		}
+		// Push live metrics to VictoriaMetrics for historical charts.
+		if vm.Enabled() {
+			sample := vmetrics.DeviceSample{TenantID: dd.TenantID, DeviceID: dd.ID, Name: dd.Name}
+			if dd.Status != nil {
+				sample.Online = dd.Status.Online
+				sample.CPU = float64(dd.Status.CPULoadPercent)
+				sample.IfacesUp = dd.Status.InterfacesUp
+				if dd.Status.TotalMemoryBytes > 0 {
+					sample.MemRatio = float64(dd.Status.TotalMemoryBytes-dd.Status.FreeMemoryBytes) / float64(dd.Status.TotalMemoryBytes)
+				}
+			}
+			_ = vm.WriteDevice(ctx, sample)
 		}
 		// Turn health into deduplicated, persisted alerts.
 		for _, c := range monitoring.Evaluate(dd, th) {

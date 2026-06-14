@@ -273,6 +273,21 @@ export async function pollDevice(id: string, token?: string): Promise<Device> {
   return env.data;
 }
 
+export interface MetricSeries {
+  name: string;
+  points: Array<{ t: number; v: number }>;
+}
+
+export interface DeviceMetrics {
+  enabled: boolean;
+  series: MetricSeries[];
+}
+
+export async function getDeviceMetrics(id: string, token?: string): Promise<DeviceMetrics> {
+  const env = await request<DeviceMetrics>("GET", `/api/v1/devices/${id}/metrics`, { token });
+  return env.data;
+}
+
 export async function listLinks(token?: string): Promise<Link[]> {
   const env = await request<Link[]>("GET", "/api/v1/links", { token });
   return env.data ?? [];

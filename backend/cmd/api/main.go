@@ -26,6 +26,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/store"
 	"github.com/neko/sdwan/backend/internal/tenant"
 	"github.com/neko/sdwan/backend/internal/users"
+	"github.com/neko/sdwan/backend/internal/vmetrics"
 )
 
 func main() {
@@ -110,6 +111,7 @@ func main() {
 		Sessions:  sessions,
 		Audit:     audit.NewMemoryRecorder(),
 		Alerts:    st.Alerts(),
+		VM:        vmetrics.New(cfg.VMURL),
 		IDGen:     idgen.New,
 		Metrics:   metrics.NewRegistry(),
 		StoreKind: cfg.Store,
