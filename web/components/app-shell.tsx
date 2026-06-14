@@ -17,6 +17,7 @@ import {
   LogOut,
   Server,
   Rocket,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { logout } from "@/lib/api";
@@ -26,6 +27,7 @@ const nav = [
   { href: "/", label: "仪表盘", icon: LayoutDashboard },
   { href: "/devices", label: "设备", icon: Router },
   { href: "/backbone", label: "骨干节点", icon: Server },
+  { href: "/orchestrate", label: "编排下发", icon: Workflow },
   { href: "/accel", label: "加速", icon: Rocket },
   { href: "/tenants", label: "租户", icon: Building2 },
   { href: "/topology", label: "拓扑", icon: Network },

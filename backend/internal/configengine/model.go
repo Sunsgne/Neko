@@ -23,6 +23,28 @@ type State struct {
 	Statements []Statement `json:"statements"`
 }
 
+// Merge combines multiple states into one. Later statements override earlier
+// ones with the same (path,key), so callers can layer policies (e.g. link
+// failover + acceleration) deterministically.
+func Merge(states ...State) State {
+	idx := map[string]Statement{}
+	var order []string
+	for _, st := range states {
+		for _, s := range st.Statements {
+			k := s.Path + "\x00" + s.Key
+			if _, seen := idx[k]; !seen {
+				order = append(order, k)
+			}
+			idx[k] = s
+		}
+	}
+	out := State{Statements: make([]Statement, 0, len(order))}
+	for _, k := range order {
+		out.Statements = append(out.Statements, idx[k])
+	}
+	return out
+}
+
 // index maps "path\x00key" -> statement for O(1) lookups.
 func (s State) index() map[string]Statement {
 	m := make(map[string]Statement, len(s.Statements))

@@ -95,6 +95,8 @@ func (s *Server) Handler() http.Handler {
 	// Full-function configuration over REST (no device login required).
 	mux.HandleFunc("GET /api/v1/devices/{id}/config", s.handleSnapshotConfig)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/config", s.handlePushConfig)
+	// Unified orchestration: link selection + acceleration → preview/deliver.
+	mux.HandleFunc("POST /api/v1/devices/{id}/orchestrate", s.handleOrchestrate)
 
 	// Acceleration business modes (incl. overseas-direct) + config sections.
 	mux.HandleFunc("GET /api/v1/accel/modes", s.handleAccelModes)

@@ -193,6 +193,31 @@ export async function listConfigSections(token?: string): Promise<string[]> {
   return env.data ?? [];
 }
 
+export interface Uplink {
+  name: string;
+  gateway: string;
+  interface?: string;
+  priority?: number;
+  weight?: number;
+}
+
+export interface OrchestrateResult {
+  dry_run?: boolean;
+  desired?: { statements: Array<{ path: string; key: string; attributes: Record<string, string> }> };
+  plan?: { changes: Array<{ type: string; path: string; key: string; risk: string }>; aggregate_risk: string };
+  result?: { status: string; rolled_back?: boolean; reason?: string };
+  error?: string;
+}
+
+export async function orchestrate(
+  deviceId: string,
+  body: Record<string, unknown>,
+  token?: string,
+): Promise<OrchestrateResult> {
+  const env = await request<OrchestrateResult>("POST", `/api/v1/devices/${deviceId}/orchestrate`, { token, body });
+  return env.data;
+}
+
 export async function listLinks(token?: string): Promise<Link[]> {
   const env = await request<Link[]>("GET", "/api/v1/links", { token });
   return env.data ?? [];
