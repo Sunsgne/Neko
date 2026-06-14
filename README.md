@@ -20,19 +20,19 @@ Go 1.22+（后端/Worker） · Next.js 14 + TypeScript（Web） · PostgreSQL 16
 
 ## 界面预览
 
-> 以下为 `make demo`（内存仓储 + 演示数据）实际运行截图。
+> 以下为 `make demo`（内存仓储 + 演示数据）实际运行截图。需先登录。
 
-| 仪表盘 | 设备纳管 |
+| 登录 | 仪表盘 |
 | --- | --- |
-| ![dashboard](docs/screenshots/dashboard.png) | ![devices](docs/screenshots/devices.png) |
+| ![login](docs/screenshots/login.png) | ![dashboard](docs/screenshots/dashboard.png) |
+
+| 设备纳管 | 租户管理 |
+| --- | --- |
+| ![devices](docs/screenshots/devices.png) | ![tenants](docs/screenshots/tenants.png) |
 
 | 链路质量 | DNS 管理 |
 | --- | --- |
 | ![links](docs/screenshots/links.png) | ![dns](docs/screenshots/dns.png) |
-
-| 告警中心 | 租户管理 |
-| --- | --- |
-| ![alerts](docs/screenshots/alerts.png) | ![tenants](docs/screenshots/tenants.png) |
 
 ## 一键本地 Demo 🚀
 
@@ -42,12 +42,16 @@ Go 1.22+（后端/Worker） · Next.js 14 + TypeScript（Web） · PostgreSQL 16
 make demo
 ```
 
-启动后访问：
+启动后访问 http://localhost:3000 ，使用演示账号登录：
 
-- 控制台：http://localhost:3000
-- API：http://localhost:8080/api/v1 （健康检查 `/healthz`）
+| 角色 | 账号 | 密码 |
+| --- | --- | --- |
+| 平台运营（可见全部租户） | `admin@neko.io` | `neko12345` |
+| 租户（仅 Acme Corp） | `ops@acme-corp.com` | `acme12345` |
 
-演示数据包含 3 个租户、5 台设备（含能力矩阵）、5 条链路（含评分）、3 条告警、6 个 DNS 服务器。按 `Ctrl+C` 停止。
+- API：http://localhost:8080/api/v1 （健康检查 `/healthz`，需 Bearer Token）
+- 登录后可：浏览仪表盘/设备/链路/DNS/告警/租户，**新建租户**、**登记设备**，右上角退出登录。
+- 演示数据包含 3 个租户、5 台设备（含能力矩阵）、5 条链路（含评分）、3 条告警、6 个 DNS 服务器。按 `Ctrl+C` 停止。
 
 > 前置：本机已安装 Go 1.22+ 与 Node 20+。首次运行会自动 `npm install`（稍慢）。
 
