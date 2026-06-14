@@ -53,6 +53,7 @@ type DeviceRepository interface {
 	Get(ctx context.Context, tenantID, id string) (*Device, error)
 	List(ctx context.Context, tenantID string, page Page) ([]*Device, int, error)
 	Update(ctx context.Context, d *Device) error
+	Delete(ctx context.Context, tenantID, id string) error
 }
 
 // Credential is an encrypted credential blob for a device.

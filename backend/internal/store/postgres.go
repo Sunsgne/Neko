@@ -423,6 +423,23 @@ func (r *pgDeviceRepo) Update(ctx context.Context, d *Device) error {
 	return nil
 }
 
+func (r *pgDeviceRepo) Delete(ctx context.Context, tenantID, id string) error {
+	q := `DELETE FROM devices WHERE id=$1`
+	args := []any{id}
+	if tenantID != "" {
+		q += ` AND tenant_id=$2`
+		args = append(args, tenantID)
+	}
+	ct, err := r.pool.Exec(ctx, q, args...)
+	if err != nil {
+		return mapPgError(err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }

@@ -229,6 +229,11 @@ func (s *Service) Get(ctx context.Context, tenantID, id string) (*store.Device, 
 	return s.repo.Get(ctx, tenantID, id)
 }
 
+// Delete removes a device (and cascades its credentials/snapshots/links).
+func (s *Service) Delete(ctx context.Context, tenantID, id string) error {
+	return s.repo.Delete(ctx, tenantID, id)
+}
+
 // List returns a page of devices within tenant scope.
 func (s *Service) List(ctx context.Context, tenantID string, page store.Page) ([]*store.Device, int, error) {
 	return s.repo.List(ctx, tenantID, page)

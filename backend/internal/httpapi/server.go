@@ -98,6 +98,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/devices", s.handleListDevices)
 	mux.HandleFunc("POST /api/v1/devices", s.handleCreateDevice)
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleGetDevice)
+	mux.HandleFunc("DELETE /api/v1/devices/{id}", s.handleDeleteDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/detect", s.handleDetectDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/trust", s.handleSetDeviceTrust)
 	// Device hosting (托管): enroll stores encrypted creds + connects; poll

@@ -281,6 +281,10 @@ export async function getDevice(id: string, token?: string): Promise<Device> {
   return env.data;
 }
 
+export async function deleteDevice(id: string, token?: string): Promise<void> {
+  await request("DELETE", `/api/v1/devices/${id}`, { token });
+}
+
 export async function enrollDevice(id: string, username: string, password: string, token?: string): Promise<Device> {
   const env = await request<Device>("POST", `/api/v1/devices/${id}/enroll`, {
     token, body: { username, password },

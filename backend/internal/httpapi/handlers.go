@@ -101,6 +101,16 @@ func (s *Server) handleGetDevice(w http.ResponseWriter, r *http.Request) {
 	respondData(w, http.StatusOK, d)
 }
 
+func (s *Server) handleDeleteDevice(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := s.inventory.Delete(r.Context(), tenantFrom(r.Context()), id); err != nil {
+		respondServiceError(w, err)
+		return
+	}
+	s.record(r.Context(), "delete", "device", id, nil)
+	respondData(w, http.StatusOK, map[string]string{"status": "deleted", "id": id})
+}
+
 func (s *Server) handleDetectDevice(w http.ResponseWriter, r *http.Request) {
 	d, err := s.inventory.Detect(r.Context(), tenantFrom(r.Context()), r.PathValue("id"))
 	if err != nil {

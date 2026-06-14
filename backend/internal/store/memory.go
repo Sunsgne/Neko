@@ -288,6 +288,17 @@ func (r *memDeviceRepo) Update(_ context.Context, d *Device) error {
 	return nil
 }
 
+func (r *memDeviceRepo) Delete(_ context.Context, tenantID, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	d, ok := r.items[id]
+	if !ok || (tenantID != "" && d.TenantID != tenantID) {
+		return ErrNotFound
+	}
+	delete(r.items, id)
+	return nil
+}
+
 func paginate[T any](items []T, page Page) ([]T, int, error) {
 	page = page.Normalize()
 	total := len(items)
