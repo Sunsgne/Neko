@@ -56,8 +56,8 @@
 - [x] T7.3 下发到 RouterOS（BuildConfig 生成 /ip/dns + 分流 forwarders/static FWD）+ 解析质量可观测（HealthResult 延迟/成功率）
 
 ## Epic 8 — 链路质量监控、上报与切换
-- [ ] T8.1 探测引擎（ICMP/TCP/HTTP/HTTPS/DNS）+ 延迟/丢包/抖动
-- [~] T8.2 链路评分（linkqos.Score 加权延迟/丢包/抖动）；上报通道（NATS → VictoriaMetrics）待补
+- [x] T8.1 探测引擎（probe 包：ICMP/TCP/HTTP/HTTPS/DNS，Run 聚合延迟/丢包/抖动）
+- [x] T8.2 链路评分（ScoreResult）+ 上报通道（VictoriaMetricsReporter，Influx line-protocol → /write）
 - [x] T8.3 切换决策（linkqos.Controller）：主备 + 自动失败回切 + 防震荡（滞后阈值 + MinDown/MinUp + 最小驻留 MinDwell）
 
 ## Epic 9 — 可观测性与大盘
