@@ -106,6 +106,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/devices/{id}/poll", s.handlePoll)
 	// Full-function configuration over REST (no device login required).
 	mux.HandleFunc("GET /api/v1/devices/{id}/metrics", s.handleDeviceMetrics)
+	// Config backup history + drift detection.
+	mux.HandleFunc("POST /api/v1/devices/{id}/snapshot", s.handleSnapshotSave)
+	mux.HandleFunc("GET /api/v1/devices/{id}/snapshots", s.handleSnapshotList)
+	mux.HandleFunc("GET /api/v1/devices/{id}/drift", s.handleDrift)
 	mux.HandleFunc("GET /api/v1/devices/{id}/config", s.handleSnapshotConfig)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/config", s.handlePushConfig)
 	// Unified orchestration: link selection + acceleration → preview/deliver.

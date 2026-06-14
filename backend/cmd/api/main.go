@@ -81,6 +81,7 @@ func main() {
 	inventorySvc := inventory.NewService(inventory.Deps{
 		Devices:     st.Devices(),
 		Credentials: st.Credentials(),
+		Snapshots:   st.Snapshots(),
 		Collector:   routeros.NewRestCollector(),
 		Probe:       routeros.ClientProbe{},
 		Sealer:      sealer,

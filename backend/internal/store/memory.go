@@ -15,6 +15,7 @@ type MemoryStore struct {
 	devices *memDeviceRepo
 	creds   *memCredentialRepo
 	alerts  *memAlertRepo
+	snaps   *memSnapshotRepo
 }
 
 // NewMemory builds a ready-to-use in-memory store.
@@ -24,13 +25,56 @@ func NewMemory() *MemoryStore {
 		devices: &memDeviceRepo{items: map[string]*Device{}},
 		creds:   &memCredentialRepo{items: map[string]Credential{}},
 		alerts:  &memAlertRepo{items: map[string]*Alert{}},
+		snaps:   &memSnapshotRepo{items: map[string]*ConfigSnapshot{}},
 	}
 }
 
-func (m *MemoryStore) Tenants() TenantRepository         { return m.tenants }
-func (m *MemoryStore) Devices() DeviceRepository         { return m.devices }
-func (m *MemoryStore) Credentials() CredentialRepository { return m.creds }
-func (m *MemoryStore) Alerts() AlertRepository           { return m.alerts }
+func (m *MemoryStore) Tenants() TenantRepository           { return m.tenants }
+func (m *MemoryStore) Devices() DeviceRepository           { return m.devices }
+func (m *MemoryStore) Credentials() CredentialRepository   { return m.creds }
+func (m *MemoryStore) Alerts() AlertRepository             { return m.alerts }
+func (m *MemoryStore) Snapshots() ConfigSnapshotRepository { return m.snaps }
+
+type memSnapshotRepo struct {
+	mu    sync.RWMutex
+	items map[string]*ConfigSnapshot
+}
+
+func (r *memSnapshotRepo) Save(_ context.Context, s ConfigSnapshot) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cp := s
+	r.items[s.ID] = &cp
+	return nil
+}
+
+func (r *memSnapshotRepo) List(_ context.Context, deviceID string, limit int) ([]*ConfigSnapshot, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*ConfigSnapshot, 0)
+	for _, s := range r.items {
+		if s.DeviceID == deviceID {
+			cp := *s
+			out = append(out, &cp)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].TakenAt.After(out[j].TakenAt) })
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (r *memSnapshotRepo) Get(_ context.Context, id string) (*ConfigSnapshot, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.items[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	cp := *s
+	return &cp, nil
+}
 
 type memAlertRepo struct {
 	mu    sync.RWMutex

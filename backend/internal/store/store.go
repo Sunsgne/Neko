@@ -81,10 +81,19 @@ type AlertRepository interface {
 	List(ctx context.Context, tenantID string, limit int) ([]*Alert, error)
 }
 
+// ConfigSnapshotRepository persists device config snapshots for backup history
+// and drift detection.
+type ConfigSnapshotRepository interface {
+	Save(ctx context.Context, s ConfigSnapshot) error
+	List(ctx context.Context, deviceID string, limit int) ([]*ConfigSnapshot, error)
+	Get(ctx context.Context, id string) (*ConfigSnapshot, error)
+}
+
 // Store aggregates all repositories.
 type Store interface {
 	Tenants() TenantRepository
 	Devices() DeviceRepository
 	Credentials() CredentialRepository
 	Alerts() AlertRepository
+	Snapshots() ConfigSnapshotRepository
 }

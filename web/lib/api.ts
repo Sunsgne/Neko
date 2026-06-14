@@ -288,6 +288,24 @@ export async function getDeviceMetrics(id: string, token?: string): Promise<Devi
   return env.data;
 }
 
+export interface ConfigSnapshot {
+  id: string;
+  device_id: string;
+  source: string;
+  statement_count: number;
+  taken_at: string;
+}
+
+export async function listSnapshots(id: string, token?: string): Promise<ConfigSnapshot[]> {
+  const env = await request<ConfigSnapshot[]>("GET", `/api/v1/devices/${id}/snapshots`, { token });
+  return env.data ?? [];
+}
+
+export async function takeSnapshot(id: string, token?: string): Promise<ConfigSnapshot> {
+  const env = await request<ConfigSnapshot>("POST", `/api/v1/devices/${id}/snapshot`, { token });
+  return env.data;
+}
+
 export async function listLinks(token?: string): Promise<Link[]> {
   const env = await request<Link[]>("GET", "/api/v1/links", { token });
   return env.data ?? [];

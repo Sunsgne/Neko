@@ -21,6 +21,7 @@ type PostgresStore struct {
 	devices *pgDeviceRepo
 	creds   *pgCredentialRepo
 	alerts  *pgAlertRepo
+	snaps   *pgSnapshotRepo
 }
 
 // OpenPostgres connects to PostgreSQL and verifies connectivity.
@@ -41,6 +42,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 		devices: &pgDeviceRepo{pool: pool},
 		creds:   &pgCredentialRepo{pool: pool},
 		alerts:  &pgAlertRepo{pool: pool},
+		snaps:   &pgSnapshotRepo{pool: pool},
 	}, nil
 }
 
@@ -50,10 +52,55 @@ func (s *PostgresStore) Close() { s.pool.Close() }
 // Migrate applies pending schema migrations.
 func (s *PostgresStore) Migrate(ctx context.Context) error { return Migrate(ctx, s.pool) }
 
-func (s *PostgresStore) Tenants() TenantRepository         { return s.tenants }
-func (s *PostgresStore) Devices() DeviceRepository         { return s.devices }
-func (s *PostgresStore) Credentials() CredentialRepository { return s.creds }
-func (s *PostgresStore) Alerts() AlertRepository           { return s.alerts }
+func (s *PostgresStore) Tenants() TenantRepository           { return s.tenants }
+func (s *PostgresStore) Devices() DeviceRepository           { return s.devices }
+func (s *PostgresStore) Credentials() CredentialRepository   { return s.creds }
+func (s *PostgresStore) Alerts() AlertRepository             { return s.alerts }
+func (s *PostgresStore) Snapshots() ConfigSnapshotRepository { return s.snaps }
+
+type pgSnapshotRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgSnapshotRepo) Save(ctx context.Context, s ConfigSnapshot) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO config_snapshots (id, tenant_id, device_id, source, state, statement_count, taken_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		s.ID, nullable(s.TenantID), s.DeviceID, s.Source, s.State, s.StatementCount, s.TakenAt)
+	return mapPgError(err)
+}
+
+func (r *pgSnapshotRepo) List(ctx context.Context, deviceID string, limit int) ([]*ConfigSnapshot, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, coalesce(tenant_id,''), device_id, source, state, statement_count, taken_at
+		 FROM config_snapshots WHERE device_id=$1 ORDER BY taken_at DESC LIMIT $2`, deviceID, limit)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	defer rows.Close()
+	var out []*ConfigSnapshot
+	for rows.Next() {
+		var s ConfigSnapshot
+		if err := rows.Scan(&s.ID, &s.TenantID, &s.DeviceID, &s.Source, &s.State, &s.StatementCount, &s.TakenAt); err != nil {
+			return nil, err
+		}
+		out = append(out, &s)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgSnapshotRepo) Get(ctx context.Context, id string) (*ConfigSnapshot, error) {
+	var s ConfigSnapshot
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, coalesce(tenant_id,''), device_id, source, state, statement_count, taken_at
+		 FROM config_snapshots WHERE id=$1`, id).
+		Scan(&s.ID, &s.TenantID, &s.DeviceID, &s.Source, &s.State, &s.StatementCount, &s.TakenAt)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	return &s, nil
+}
 
 type pgAlertRepo struct{ pool *pgxpool.Pool }
 

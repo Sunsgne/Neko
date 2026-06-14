@@ -80,6 +80,19 @@ type CapabilityMatrix struct {
 	SupportsContainer bool                  `json:"supports_container"`
 }
 
+// ConfigSnapshot is a captured device configuration (running state) used for
+// backup history and drift detection. State is the JSON of a
+// configengine.State (store stays decoupled from configengine).
+type ConfigSnapshot struct {
+	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id"`
+	DeviceID       string    `json:"device_id"`
+	Source         string    `json:"source"` // manual | scheduled
+	State          []byte    `json:"-"`
+	StatementCount int       `json:"statement_count"`
+	TakenAt        time.Time `json:"taken_at"`
+}
+
 // Alert is a persisted, deduplicated alert raised by monitoring.
 type Alert struct {
 	ID         string     `json:"id"`

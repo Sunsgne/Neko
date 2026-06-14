@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -47,10 +48,11 @@ func main() {
 	svc := inventory.NewService(inventory.Deps{
 		Devices:     pg.Devices(),
 		Credentials: pg.Credentials(),
+		Snapshots:   pg.Snapshots(),
 		Collector:   routeros.NewRestCollector(),
 		Probe:       routeros.ClientProbe{},
 		Sealer:      sealer,
-		ID:          func() string { return "" },
+		ID:          func() string { return idgen.New("snap") },
 		Now:         func() time.Time { return time.Now().UTC() },
 	})
 
@@ -64,15 +66,66 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
+	// Config snapshot + drift detection runs less frequently than health polls.
+	snapInterval := 5 * time.Minute
+	snapTicker := time.NewTicker(snapInterval)
+	defer snapTicker.Stop()
+	logger.Info("config snapshot/drift loop running", "interval", snapInterval.String())
+
 	pollAll(context.Background(), logger, svc, pg, vm)
+	snapshotAll(context.Background(), logger, svc, pg)
 	for {
 		select {
 		case <-ticker.C:
 			pollAll(context.Background(), logger, svc, pg, vm)
+		case <-snapTicker.C:
+			snapshotAll(context.Background(), logger, svc, pg)
 		case <-stop:
 			logger.Info("worker stopped")
 			return
 		}
+	}
+}
+
+// snapshotAll captures config snapshots for enrolled devices and fires a
+// config_drift alert when the running config changed since the last snapshot.
+func snapshotAll(ctx context.Context, logger interface {
+	Info(string, ...any)
+	Warn(string, ...any)
+}, svc *inventory.Service, pg *store.PostgresStore) {
+	devices, _, err := pg.Devices().List(ctx, "", store.Page{Number: 1, Size: 1000})
+	if err != nil {
+		return
+	}
+	var taken, drifted int
+	now := time.Now().UTC()
+	for _, d := range devices {
+		if !d.Enrolled {
+			continue
+		}
+		if _, _, err := svc.SnapshotConfig(ctx, "", d.ID, "scheduled"); err != nil {
+			continue
+		}
+		taken++
+		res, err := svc.Drift(ctx, "", d.ID)
+		if err != nil {
+			continue
+		}
+		if res.HasBaseline && res.Drifted {
+			drifted++
+			a := store.Alert{
+				ID: idgen.New("al"), TenantID: d.TenantID, DeviceID: d.ID,
+				Code: "config_drift", Severity: "warning",
+				Title:  "配置漂移：" + d.Name,
+				Detail: "检测到设备配置在平台外被修改（" + strconv.Itoa(len(res.Plan.Changes)) + " 处变更）",
+			}
+			_, _, _ = pg.Alerts().Fire(ctx, a)
+		} else {
+			_, _ = pg.Alerts().Resolve(ctx, d.ID, "config_drift", now)
+		}
+	}
+	if taken > 0 {
+		logger.Info("config snapshot cycle", "taken", taken, "drifted", drifted)
 	}
 }
 

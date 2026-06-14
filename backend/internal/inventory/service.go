@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/neko/sdwan/backend/internal/configengine"
 	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/secret"
 	"github.com/neko/sdwan/backend/internal/store"
@@ -39,6 +40,7 @@ type StatusProbe interface {
 type Service struct {
 	repo      store.DeviceRepository
 	creds     store.CredentialRepository
+	snaps     store.ConfigSnapshotRepository
 	collector routeros.Collector
 	probe     StatusProbe
 	sealer    *secret.Sealer
@@ -50,6 +52,7 @@ type Service struct {
 type Deps struct {
 	Devices     store.DeviceRepository
 	Credentials store.CredentialRepository
+	Snapshots   store.ConfigSnapshotRepository
 	Collector   routeros.Collector
 	Probe       StatusProbe
 	Sealer      *secret.Sealer
@@ -62,6 +65,7 @@ func NewService(d Deps) *Service {
 	return &Service{
 		repo:      d.Devices,
 		creds:     d.Credentials,
+		snaps:     d.Snapshots,
 		collector: d.Collector,
 		probe:     d.Probe,
 		sealer:    d.Sealer,
@@ -306,6 +310,89 @@ func (s *Service) SetTrustState(ctx context.Context, tenantID, id string, to sto
 		return nil, err
 	}
 	return d, nil
+}
+
+// targetForDevice resolves a device's stored credentials into a routeros.Target.
+func (s *Service) targetForDevice(ctx context.Context, d *store.Device) (routeros.Target, error) {
+	if s.creds == nil || s.sealer == nil {
+		return routeros.Target{}, fmt.Errorf("%w: credentials not configured", ErrInvalidInput)
+	}
+	cred, err := s.creds.Get(ctx, d.ID)
+	if err != nil {
+		return routeros.Target{}, ErrNotEnrolled
+	}
+	plain, err := s.sealer.Open(cred.Sealed)
+	if err != nil {
+		return routeros.Target{}, err
+	}
+	var sc storedCreds
+	if err := json.Unmarshal(plain, &sc); err != nil {
+		return routeros.Target{}, err
+	}
+	return routeros.Target{Address: d.MgmtAddress, Username: sc.Username, Secret: sc.Password}, nil
+}
+
+// SnapshotConfig reads the device's running configuration over REST and stores
+// it as a backup snapshot. Returns the stored snapshot and the captured state.
+func (s *Service) SnapshotConfig(ctx context.Context, tenantID, id, source string) (*store.ConfigSnapshot, configengine.State, error) {
+	if s.snaps == nil {
+		return nil, configengine.State{}, fmt.Errorf("%w: snapshots not configured", ErrInvalidInput)
+	}
+	d, err := s.repo.Get(ctx, tenantID, id)
+	if err != nil {
+		return nil, configengine.State{}, err
+	}
+	target, err := s.targetForDevice(ctx, d)
+	if err != nil {
+		return nil, configengine.State{}, err
+	}
+	state, err := routeros.NewApplier(target, nil).Snapshot(ctx)
+	if err != nil {
+		return nil, configengine.State{}, err
+	}
+	raw, _ := json.Marshal(state)
+	snap := store.ConfigSnapshot{
+		ID: s.id(), TenantID: d.TenantID, DeviceID: d.ID, Source: source,
+		State: raw, StatementCount: len(state.Statements), TakenAt: s.now(),
+	}
+	if err := s.snaps.Save(ctx, snap); err != nil {
+		return nil, configengine.State{}, err
+	}
+	return &snap, state, nil
+}
+
+// ListSnapshots returns a device's config snapshot history (tenant-scoped).
+func (s *Service) ListSnapshots(ctx context.Context, tenantID, id string, limit int) ([]*store.ConfigSnapshot, error) {
+	if _, err := s.repo.Get(ctx, tenantID, id); err != nil {
+		return nil, err
+	}
+	return s.snaps.List(ctx, id, limit)
+}
+
+// DriftResult describes config drift between the two most recent snapshots.
+type DriftResult struct {
+	HasBaseline bool              `json:"has_baseline"`
+	Drifted     bool              `json:"drifted"`
+	Plan        configengine.Plan `json:"plan"`
+}
+
+// Drift compares the two most recent snapshots and reports out-of-band changes.
+func (s *Service) Drift(ctx context.Context, tenantID, id string) (DriftResult, error) {
+	if _, err := s.repo.Get(ctx, tenantID, id); err != nil {
+		return DriftResult{}, err
+	}
+	snaps, err := s.snaps.List(ctx, id, 2)
+	if err != nil {
+		return DriftResult{}, err
+	}
+	if len(snaps) < 2 {
+		return DriftResult{HasBaseline: false}, nil
+	}
+	var prev, cur configengine.State
+	_ = json.Unmarshal(snaps[1].State, &prev) // older
+	_ = json.Unmarshal(snaps[0].State, &cur)  // newer
+	plan := configengine.ComputeDiff(prev, cur, configengine.RiskOptions{})
+	return DriftResult{HasBaseline: true, Drifted: !plan.Empty(), Plan: plan}, nil
 }
 
 func validHostname(h string) bool {

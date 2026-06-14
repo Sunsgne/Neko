@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
-import { getDevice, getDeviceMetrics, type Device, type DeviceMetrics } from "@/lib/api";
+import { getDevice, getDeviceMetrics, listSnapshots, type Device, type DeviceMetrics, type ConfigSnapshot } from "@/lib/api";
 import { serverToken } from "@/lib/server-session";
 import { DeviceActions } from "@/components/device-actions";
 import { MetricChart } from "@/components/metric-chart";
+import { ConfigBackup } from "@/components/config-backup";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,11 @@ export default async function DeviceDetailPage({ params }: { params: { id: strin
   let d: Device | null = null;
   let err: string | null = null;
   let metrics: DeviceMetrics | null = null;
+  let snapshots: ConfigSnapshot[] = [];
   try {
     d = await getDevice(params.id, serverToken());
     metrics = await getDeviceMetrics(params.id, serverToken()).catch(() => null);
+    snapshots = await listSnapshots(params.id, serverToken()).catch(() => []);
   } catch (e) {
     err = e instanceof Error ? e.message : "加载失败";
   }
@@ -115,6 +118,13 @@ export default async function DeviceDetailPage({ params }: { params: { id: strin
             <MetricChart series={metrics?.series?.find((s) => s.name === "cpu")} label="CPU 负载" color="hsl(199 89% 52%)" />
             <MetricChart series={metrics?.series?.find((s) => s.name === "mem")} label="内存使用" color="hsl(265 89% 65%)" />
           </div>
+        </Card>
+      )}
+
+      {d.enrolled && (
+        <Card>
+          <CardHeader title="配置备份 / 漂移" subtitle="保存运行配置快照，检测平台外的配置变更" />
+          <ConfigBackup deviceId={d.id} snapshots={snapshots} />
         </Card>
       )}
 
