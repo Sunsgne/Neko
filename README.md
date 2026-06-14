@@ -7,6 +7,9 @@
 ## 能力概览
 - 多租户 + RBAC，严格租户隔离
 - 设备纳管：自动识别 RouterBOARD/CHR/x86、版本、架构、License、Device Mode、接口能力（能力矩阵）
+- 骨干节点管理：SD-WAN 骨干 POP / 出口网关（均为 RouterOS）统一纳管，按角色/地域组织
+- 加速业务模式：智能分流 / **海外运营（全量直连海外出口，不分流）** / 国内直连
+- 全功能配置：通过 RouterOS REST 直接下发全量配置（接口/地址/路由/防火墙/NAT/DHCP/DNS/VLAN/隧道/队列/SNMP…），**无需登录设备**
 - 配置引擎：Desired State + Diff + 风险分级 + commit-confirm 安全回滚 + Canary 灰度
 - SD-WAN 组网：Overlay + 静态/OSPF/BGP（eBGP/iBGP/双 POP/RR/BFD）+ 路由策略与防泄漏
 - 原生 SNMP：发现/轮询/接口流量/资源/Trap/告警

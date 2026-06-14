@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### Added
+- **骨干节点管理**：设备新增角色（`cpe`/`backbone`/`gateway`）与地域字段；骨干 POP / 出口网关（均为 RouterOS）统一纳管。迁移 `0003_device_role.sql`；`GET /api/v1/devices?role=` 筛选；前端「骨干节点」页（登记骨干/出口、角色/地域/平台展示）。
+- **加速业务·海外运营模式**：`accel` 包新增三种模式——`overseas_direct`（海外运营：全量直连海外出口 IP，**不做分流**，仅默认路由+NAT+海外 DNS）、`smart_split`（智能分流：海外地址表 mangle 标记走隧道、国内直连）、`domestic_direct`。`POST /api/v1/accel/preview` 生成 RouterOS 配置预览 + 风险分级；前端「加速」页可视化选择模式与参数并预览生成配置。
+- **ROS 全功能配置（免登录设备）**：`routeros.Client` 完整 REST CRUD（List/Create/Update/Delete 任意配置段）+ `routeros.Applier` 实现 `configengine.Applier`（snapshot→diff→apply→Restore 回滚），通过 REST 直接下发全量配置，无需登录设备控制台；`ManagedSections` 覆盖接口/地址/路由/防火墙/NAT/DHCP/DNS/VLAN/网桥/隧道/队列/SNMP/系统等 26 个配置段。新增 `GET/PUT /api/v1/devices/{id}/config` 与 `GET /api/v1/config/sections`。`ComputeDiff` 现为新增项填充完整属性，使下发计划自包含。
 - 任务队列全量收尾（TASKS.md Epic 1–10 全部完成）：
   - 持久化（T1.1/T1.3）：pgx PostgresStore（tenants/devices）+ 嵌入式迁移执行器 + 0002 RLS 行级安全策略（current_tenant() GUC）；`NEKO_STORE=postgres` 启用。
   - 审计（T1.4）：写操作埋点（create/trust_change）+ `/api/v1/audit` 查询。
