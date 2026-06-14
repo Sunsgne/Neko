@@ -30,6 +30,19 @@ const (
 	PlatformUnknown     DevicePlatform = "unknown"
 )
 
+// DeviceRole classifies a device's role in the SD-WAN topology.
+//
+//	cpe      — 客户侧设备（Customer Premises Equipment）
+//	backbone — SD-WAN 骨干节点 / POP（也是 RouterOS）
+//	gateway  — 出口/网关节点（含海外出口）
+type DeviceRole string
+
+const (
+	RoleCPE      DeviceRole = "cpe"
+	RoleBackbone DeviceRole = "backbone"
+	RoleGateway  DeviceRole = "gateway"
+)
+
 // TrustState models the device onboarding trust lifecycle.
 //
 //	untrusted -> discovered -> authenticated -> enrolled -> managed
@@ -73,6 +86,8 @@ type Device struct {
 	TenantID     string            `json:"tenant_id"`
 	Name         string            `json:"name"`
 	MgmtAddress  string            `json:"mgmt_address"`
+	Role         DeviceRole        `json:"role"`
+	Region       string            `json:"region,omitempty"` // POP/出口地域，如 cn-east、overseas-hk
 	Platform     DevicePlatform    `json:"platform"`
 	Model        string            `json:"model"`
 	Serial       string            `json:"serial"`

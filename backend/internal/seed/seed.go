@@ -41,8 +41,23 @@ func Demo(ctx context.Context, st store.Store, cat *catalog.Catalog) error {
 		},
 		{
 			ID: "dev_gzcore", TenantID: "ten_globex", Name: "pop-gz-core", MgmtAddress: "10.30.0.1",
-			Platform: store.PlatformCHR, Model: "CHR", Serial: "", TrustState: store.TrustEnrolled,
+			Role: store.RoleBackbone, Region: "cn-south",
+			Platform: store.PlatformCHR, Model: "CHR", Serial: "", TrustState: store.TrustManaged,
 			Capabilities: &store.CapabilityMatrix{RouterOSVersion: "7.14", Architecture: "x86_64", BoardName: "CHR", LicenseLevel: 4, DeviceMode: "enterprise", SupportsBGP: true, SupportsOSPF: true, SupportsWireGuard: true},
+			LastSeenAt:   &seen, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "dev_popsh", TenantID: "ten_acme", Name: "pop-sh-core", MgmtAddress: "10.10.0.1",
+			Role: store.RoleBackbone, Region: "cn-east",
+			Platform: store.PlatformRouterBOARD, Model: "CCR2216-1G-12XS-2XQ", Serial: "HEXBB1", TrustState: store.TrustManaged,
+			Capabilities: &store.CapabilityMatrix{RouterOSVersion: "7.14.3", Architecture: "arm64", BoardName: "CCR2216-1G-12XS-2XQ", LicenseLevel: 6, DeviceMode: "enterprise", SupportsBGP: true, SupportsOSPF: true, SupportsWireGuard: true, SupportsContainer: true},
+			LastSeenAt:   &seen, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "dev_gwhk", TenantID: "ten_acme", Name: "gw-hk-exit", MgmtAddress: "10.200.0.1",
+			Role: store.RoleGateway, Region: "overseas-hk",
+			Platform: store.PlatformCHR, Model: "CHR", Serial: "", TrustState: store.TrustManaged,
+			Capabilities: &store.CapabilityMatrix{RouterOSVersion: "7.14", Architecture: "x86_64", BoardName: "CHR", LicenseLevel: 6, DeviceMode: "enterprise", SupportsBGP: true, SupportsOSPF: true, SupportsWireGuard: true},
 			LastSeenAt:   &seen, CreatedAt: now, UpdatedAt: now,
 		},
 		{

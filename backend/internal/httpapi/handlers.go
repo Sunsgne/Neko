@@ -57,6 +57,17 @@ func (s *Server) handleGetTenant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {
+	// Optional role filter (?role=backbone|cpe|gateway) for e.g. the backbone
+	// node management view.
+	if role := r.URL.Query().Get("role"); role != "" {
+		items, err := s.inventory.ListByRole(r.Context(), tenantFrom(r.Context()), store.DeviceRole(role))
+		if err != nil {
+			respondServiceError(w, err)
+			return
+		}
+		respondList(w, items, Meta{Page: 1, PageSize: len(items), Total: len(items)})
+		return
+	}
 	page := pageFrom(r)
 	items, total, err := s.inventory.List(r.Context(), tenantFrom(r.Context()), page)
 	if err != nil {
@@ -77,7 +88,7 @@ func (s *Server) handleCreateDevice(w http.ResponseWriter, r *http.Request) {
 		respondServiceError(w, err)
 		return
 	}
-	s.record(r.Context(), "create", "device", d.ID, map[string]string{"name": d.Name, "mgmt_address": d.MgmtAddress})
+	s.record(r.Context(), "create", "device", d.ID, map[string]string{"name": d.Name, "mgmt_address": d.MgmtAddress, "role": string(d.Role)})
 	respondData(w, http.StatusCreated, d)
 }
 

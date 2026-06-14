@@ -92,6 +92,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleGetDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/detect", s.handleDetectDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/trust", s.handleSetDeviceTrust)
+	// Full-function configuration over REST (no device login required).
+	mux.HandleFunc("GET /api/v1/devices/{id}/config", s.handleSnapshotConfig)
+	mux.HandleFunc("PUT /api/v1/devices/{id}/config", s.handlePushConfig)
+
+	// Acceleration business modes (incl. overseas-direct) + config sections.
+	mux.HandleFunc("GET /api/v1/accel/modes", s.handleAccelModes)
+	mux.HandleFunc("POST /api/v1/accel/preview", s.handleAccelPreview)
+	mux.HandleFunc("GET /api/v1/config/sections", s.handleConfigSections)
 
 	// Audit log (operator-scoped query).
 	mux.HandleFunc("GET /api/v1/audit", s.handleListAudit)

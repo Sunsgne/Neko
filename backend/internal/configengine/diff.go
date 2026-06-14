@@ -20,7 +20,7 @@ func ComputeDiff(running, desired State, opts RiskOptions) Plan {
 		k := d.Path + "\x00" + d.Key
 		r, ok := runIdx[k]
 		if !ok {
-			changes = append(changes, Change{Type: ChangeAdd, Path: d.Path, Key: d.Key})
+			changes = append(changes, Change{Type: ChangeAdd, Path: d.Path, Key: d.Key, Attrs: attrsAsChanges(d.Attributes)})
 			continue
 		}
 		if ac := attrDiff(r.Attributes, d.Attributes); len(ac) > 0 {
@@ -62,6 +62,15 @@ func ComputeDiff(running, desired State, opts RiskOptions) Plan {
 	}
 
 	return Plan{Changes: changes, AggregateRisk: agg}
+}
+
+// attrsAsChanges renders a full attribute set as AttrChanges (for adds).
+func attrsAsChanges(attrs map[string]string) []AttrChange {
+	out := make([]AttrChange, 0, len(attrs))
+	for k, v := range attrs {
+		out = append(out, AttrChange{Attr: k, Old: "", New: v})
+	}
+	return sortedAttrChanges(out)
 }
 
 func attrDiff(old, new map[string]string) []AttrChange {

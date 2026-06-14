@@ -43,6 +43,10 @@ func NewService(repo store.DeviceRepository, collector routeros.Collector, id ID
 type RegisterInput struct {
 	Name        string `json:"name"`
 	MgmtAddress string `json:"mgmt_address"`
+	// Role defaults to cpe. Use "backbone" for SD-WAN 骨干节点/POP (also ROS),
+	// or "gateway" for an exit/gateway node (incl. overseas exit).
+	Role   store.DeviceRole `json:"role"`
+	Region string           `json:"region"`
 }
 
 // Register creates a device record in the "discovered" trust state. Capability
@@ -65,12 +69,22 @@ func (s *Service) Register(ctx context.Context, tenantID string, in RegisterInpu
 			}
 		}
 	}
+	role := in.Role
+	switch role {
+	case "":
+		role = store.RoleCPE
+	case store.RoleCPE, store.RoleBackbone, store.RoleGateway:
+	default:
+		return nil, fmt.Errorf("%w: role must be cpe|backbone|gateway", ErrInvalidInput)
+	}
 	now := s.now()
 	d := &store.Device{
 		ID:          s.id(),
 		TenantID:    tenantID,
 		Name:        name,
 		MgmtAddress: addr,
+		Role:        role,
+		Region:      strings.TrimSpace(in.Region),
 		Platform:    store.PlatformUnknown,
 		TrustState:  store.TrustDiscovered,
 		CreatedAt:   now,
@@ -90,6 +104,30 @@ func (s *Service) Get(ctx context.Context, tenantID, id string) (*store.Device, 
 // List returns a page of devices within tenant scope.
 func (s *Service) List(ctx context.Context, tenantID string, page store.Page) ([]*store.Device, int, error) {
 	return s.repo.List(ctx, tenantID, page)
+}
+
+// ListByRole returns devices of a given role within tenant scope. An empty
+// role returns all devices. Filtering is applied over a wide page since
+// fleets per tenant are modest.
+func (s *Service) ListByRole(ctx context.Context, tenantID string, role store.DeviceRole) ([]*store.Device, error) {
+	all, _, err := s.repo.List(ctx, tenantID, store.Page{Number: 1, Size: 1000})
+	if err != nil {
+		return nil, err
+	}
+	if role == "" {
+		return all, nil
+	}
+	out := make([]*store.Device, 0, len(all))
+	for _, d := range all {
+		dr := d.Role
+		if dr == "" {
+			dr = store.RoleCPE
+		}
+		if dr == role {
+			out = append(out, d)
+		}
+	}
+	return out, nil
 }
 
 // Detect contacts the device, identifies its model/platform/capabilities, and
