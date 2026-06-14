@@ -7,13 +7,22 @@ import (
 	"github.com/neko/sdwan/backend/internal/configengine"
 	"github.com/neko/sdwan/backend/internal/linkpolicy"
 	"github.com/neko/sdwan/backend/internal/routeros"
+	"github.com/neko/sdwan/backend/internal/routing"
 )
 
-// orchestrateRequest is the unified "站点编排 + 一键下发" payload: link
-// selection + (optional) acceleration mode, previewed or pushed to a device.
+// orchestrateRequest is the SD-WAN "站点编排 + 一键下发" payload. The core
+// business is connecting a CPE/site into the fabric via an overlay tunnel to a
+// backbone POP, then layering networking routes and/or acceleration on top.
 type orchestrateRequest struct {
+	// Tunnel builds the site↔POP overlay (e.g. WireGuard) — the SD-WAN fabric edge.
+	Tunnel *routing.Tunnel `json:"tunnel,omitempty"`
+	VRF    string          `json:"vrf,omitempty"`
+	// OverlayRoutes are destination CIDRs reachable through the tunnel (组网).
+	OverlayRoutes []string `json:"overlay_routes,omitempty"`
+	// Accel applies an acceleration mode (海外直连 / 智能分流) over the tunnel.
+	Accel *accel.Profile `json:"accel,omitempty"`
+	// LinkPolicy is the optional local multi-WAN selection (advanced).
 	LinkPolicy *linkpolicy.Policy `json:"link_policy,omitempty"`
-	Accel      *accel.Profile     `json:"accel,omitempty"`
 	// DryRun=true returns the generated config + plan without touching the
 	// device (preview). Otherwise the config is pushed over RouterOS REST.
 	DryRun         bool   `json:"dry_run"`
@@ -39,14 +48,15 @@ func (s *Server) handleOrchestrate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var states []configengine.State
-	if req.LinkPolicy != nil {
-		st, err := linkpolicy.BuildConfig(*req.LinkPolicy)
-		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid_link_policy", err.Error())
-			return
-		}
-		states = append(states, st)
+	// 1) Overlay tunnel to the backbone POP (fabric edge).
+	if req.Tunnel != nil {
+		states = append(states, routing.BuildTunnelState(req.VRF, *req.Tunnel))
 	}
+	// 2) Networking: routes reachable through the tunnel.
+	if len(req.OverlayRoutes) > 0 && req.Tunnel != nil {
+		states = append(states, overlayRouteState(req.VRF, req.Tunnel.Name, req.OverlayRoutes))
+	}
+	// 3) Acceleration over the tunnel.
 	if req.Accel != nil {
 		st, err := accel.BuildConfig(*req.Accel)
 		if err != nil {
@@ -55,8 +65,17 @@ func (s *Server) handleOrchestrate(w http.ResponseWriter, r *http.Request) {
 		}
 		states = append(states, st)
 	}
+	// 4) Optional local multi-WAN selection (advanced).
+	if req.LinkPolicy != nil {
+		st, err := linkpolicy.BuildConfig(*req.LinkPolicy)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_link_policy", err.Error())
+			return
+		}
+		states = append(states, st)
+	}
 	if len(states) == 0 {
-		respondError(w, http.StatusBadRequest, "empty_intent", "需要 link_policy 或 accel 至少一项")
+		respondError(w, http.StatusBadRequest, "empty_intent", "需要 tunnel / accel / link_policy 至少一项")
 		return
 	}
 	desired := configengine.Merge(states...)
@@ -86,4 +105,22 @@ func (s *Server) handleOrchestrate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.record(r.Context(), "orchestrate", "device", dev.ID, map[string]string{"status": res.Status})
 	respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan})
+}
+
+// overlayRouteState routes the given CIDRs through the overlay tunnel interface.
+func overlayRouteState(vrf, iface string, cidrs []string) configengine.State {
+	var sts []configengine.Statement
+	for _, c := range cidrs {
+		attrs := map[string]string{
+			"dst-address": c,
+			"gateway":     iface,
+			"distance":    "1",
+			"comment":     "neko-fabric: route via " + iface,
+		}
+		if vrf != "" {
+			attrs["routing-table"] = vrf
+		}
+		sts = append(sts, configengine.Statement{Path: "/ip/route", Key: c + "@" + iface, Attributes: attrs})
+	}
+	return configengine.State{Statements: sts}
 }
