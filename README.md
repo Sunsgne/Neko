@@ -76,15 +76,41 @@ cd web && npm install && npm run dev
 make check
 ```
 
-## 生产部署（容器）
+## 生产部署 — Ubuntu 24.04 一键脚本 🚀
+
+在全新的 Ubuntu 24.04 服务器上（root 或 sudo 用户）：
 
 ```bash
-# 构建并启动全栈（含 Postgres/Redis/NATS/VictoriaMetrics/OTel + API/Worker/Web）
+git clone <repo> neko && cd neko
+sudo bash scripts/deploy-ubuntu.sh
+```
+
+脚本会自动：
+
+1. 安装 Docker Engine + compose 插件（若缺失）。
+2. 生成 `.env`：随机数据库密码、随机管理员密码、按服务器 IP 填充对外地址。
+3. 构建并启动全栈（Postgres/Redis/NATS/VictoriaMetrics/OTel + API/Worker/Web）。
+4. 等待健康检查，输出控制台地址与**管理员账号密码**。
+
+幂等：重复运行会复用 `.env` 并滚动升级。常用环境变量：
+
+```bash
+# 自定义对外地址 / 端口 / 管理员账号 / 是否注入演示数据
+PUBLIC_HOST=sdwan.example.com ADMIN_EMAIL=ops@corp.com WITH_DEMO=false \
+  sudo -E bash scripts/deploy-ubuntu.sh
+```
+
+也可用 `make deploy` / `make deploy-down`。
+
+### 手动部署
+
+```bash
+cp .env.example .env   # 按需修改密钥与端口
 docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
 ```
 
 - API 使用 PostgreSQL（自动迁移 + RLS）、启用鉴权，并暴露 `/metrics` 供 VictoriaMetrics 抓取。
-- 后端镜像为 distroless 静态二进制；前端为 Next.js standalone。
+- 后端镜像为 distroless 静态二进制；前端为 Next.js standalone；浏览器访问的 API 地址在前端构建期注入（`NEKO_PUBLIC_API_URL`）。
 
 ## 目录结构
 见 [`AGENTS.md` §6](./AGENTS.md) 与 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)。

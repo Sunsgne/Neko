@@ -81,10 +81,10 @@ func main() {
 	if cfg.AuthEnabled || cfg.Seed {
 		ur := users.NewMemoryRepository()
 		sessions = session.NewStore(12 * time.Hour)
-		seed.Users(context.Background(), ur)
+		seed.Users(context.Background(), ur, cfg.AdminEmail, cfg.AdminPassword)
 		userRepo = ur
 		authn = sessions
-		logger.Info("authentication enabled (session tokens)", "demo_accounts", cfg.Seed)
+		logger.Info("authentication enabled (session tokens)", "demo_accounts", cfg.Seed, "admin", firstNonEmpty(cfg.AdminEmail, "admin@neko.io"))
 	}
 
 	srv := httpapi.New(httpapi.Deps{
@@ -128,4 +128,13 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("bye")
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

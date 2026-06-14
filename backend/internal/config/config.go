@@ -25,6 +25,10 @@ type Config struct {
 	OperatorToken string // seed operator token when auth is enabled
 	// Seed populates demo data into the memory store/catalog at startup.
 	Seed bool
+	// AdminEmail/AdminPassword seed the initial platform operator account when
+	// auth is enabled. Empty values fall back to demo defaults.
+	AdminEmail    string
+	AdminPassword string
 }
 
 // Load reads configuration from the environment, applying sensible defaults
@@ -44,6 +48,8 @@ func Load() Config {
 		AuthEnabled:   strings.EqualFold(env("NEKO_AUTH", "off"), "on"),
 		OperatorToken: env("NEKO_OPERATOR_TOKEN", ""),
 		Seed:          strings.EqualFold(env("NEKO_SEED", "false"), "true"),
+		AdminEmail:    env("NEKO_ADMIN_EMAIL", ""),
+		AdminPassword: env("NEKO_ADMIN_PASSWORD", ""),
 	}
 }
 

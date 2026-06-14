@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: neko
-      POSTGRES_PASSWORD: neko
-      POSTGRES_DB: neko
+      POSTGRES_USER: ${POSTGRES_USER:-neko}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-neko}
+      POSTGRES_DB: ${POSTGRES_DB:-neko}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U neko"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-neko}"]
       interval: 5s
       timeout: 3s
       retries: 10

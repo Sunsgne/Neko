@@ -3,6 +3,8 @@
 help:
 	@echo "Neko 平台 — 常用命令"
 	@echo "  make demo           一键本地 Demo（后端+演示数据+前端，无需外部依赖）"
+	@echo "  make deploy         Ubuntu 24.04 一键容器化部署（生产，自动生成密钥）"
+	@echo "  make deploy-down    停止部署的全栈服务"
 	@echo "  make check          运行全部检查（合并主线前必须通过）"
 	@echo "  make backend-build  编译后端"
 	@echo "  make backend-test   后端单元测试"
@@ -13,6 +15,12 @@ help:
 
 demo:
 	./scripts/demo.sh
+
+deploy:
+	./scripts/deploy-ubuntu.sh
+
+deploy-down:
+	docker compose -f docker-compose.yml -f docker-compose.deploy.yml down
 
 check: backend-vet backend-test backend-build web-build
 	@echo "✅ all checks passed"

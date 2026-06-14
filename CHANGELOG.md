@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- **初始化易用性 & Ubuntu 24.04 一键部署**：新增 `scripts/deploy-ubuntu.sh`（`make deploy`）——自动安装 Docker/compose、生成带随机密钥的 `.env`（数据库密码、管理员密码）、按服务器 IP 自动填充对外地址、构建并启动全栈、等待健康检查并打印访问地址与管理员凭据，幂等可重复运行。后端支持 `NEKO_ADMIN_EMAIL/NEKO_ADMIN_PASSWORD` 配置初始运营账号；compose 全面参数化（密码/端口/对外地址经 `.env` 注入）；web 镜像构建期注入 `NEXT_PUBLIC_API_BASE_URL` 以便浏览器正确访问 API。
 - **骨干节点管理**：设备新增角色（`cpe`/`backbone`/`gateway`）与地域字段；骨干 POP / 出口网关（均为 RouterOS）统一纳管。迁移 `0003_device_role.sql`；`GET /api/v1/devices?role=` 筛选；前端「骨干节点」页（登记骨干/出口、角色/地域/平台展示）。
 - **加速业务·海外运营模式**：`accel` 包新增三种模式——`overseas_direct`（海外运营：全量直连海外出口 IP，**不做分流**，仅默认路由+NAT+海外 DNS）、`smart_split`（智能分流：海外地址表 mangle 标记走隧道、国内直连）、`domestic_direct`。`POST /api/v1/accel/preview` 生成 RouterOS 配置预览 + 风险分级；前端「加速」页可视化选择模式与参数并预览生成配置。
 - **ROS 全功能配置（免登录设备）**：`routeros.Client` 完整 REST CRUD（List/Create/Update/Delete 任意配置段）+ `routeros.Applier` 实现 `configengine.Applier`（snapshot→diff→apply→Restore 回滚），通过 REST 直接下发全量配置，无需登录设备控制台；`ManagedSections` 覆盖接口/地址/路由/防火墙/NAT/DHCP/DNS/VLAN/网桥/隧道/队列/SNMP/系统等 26 个配置段。新增 `GET/PUT /api/v1/devices/{id}/config` 与 `GET /api/v1/config/sections`。`ComputeDiff` 现为新增项填充完整属性，使下发计划自包含。
