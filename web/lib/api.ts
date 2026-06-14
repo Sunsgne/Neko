@@ -24,11 +24,15 @@ export type TrustState =
   | "enrolled"
   | "managed";
 
+export type DeviceRole = "cpe" | "backbone" | "gateway";
+
 export interface Device {
   id: string;
   tenant_id: string;
   name: string;
   mgmt_address: string;
+  role: DeviceRole;
+  region?: string;
   platform: DevicePlatform;
   model: string;
   serial: string;
@@ -36,6 +40,18 @@ export interface Device {
   last_seen_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AccelMode {
+  mode: string;
+  desc: string;
+}
+
+export interface AccelPreview {
+  mode: string;
+  desc: string;
+  state: { statements: Array<{ path: string; key: string; attributes: Record<string, string> }> };
+  plan: { changes: Array<{ type: string; path: string; key: string; risk: string }>; aggregate_risk: string };
 }
 
 export interface Link {
@@ -148,17 +164,33 @@ export async function createTenant(name: string, token?: string): Promise<Tenant
   return env.data;
 }
 
-export async function listDevices(token?: string): Promise<Device[]> {
-  const env = await request<Device[]>("GET", "/api/v1/devices", { token });
+export async function listDevices(token?: string, role?: DeviceRole): Promise<Device[]> {
+  const q = role ? `?role=${role}` : "";
+  const env = await request<Device[]>("GET", `/api/v1/devices${q}`, { token });
   return env.data ?? [];
 }
 
-export async function registerDevice(name: string, mgmtAddress: string, token?: string): Promise<Device> {
-  const env = await request<Device>("POST", "/api/v1/devices", {
-    token,
-    body: { name, mgmt_address: mgmtAddress },
-  });
+export async function registerDevice(
+  input: { name: string; mgmt_address: string; role?: DeviceRole; region?: string },
+  token?: string,
+): Promise<Device> {
+  const env = await request<Device>("POST", "/api/v1/devices", { token, body: input });
   return env.data;
+}
+
+export async function listAccelModes(token?: string): Promise<AccelMode[]> {
+  const env = await request<AccelMode[]>("GET", "/api/v1/accel/modes", { token });
+  return env.data ?? [];
+}
+
+export async function previewAccel(profile: Record<string, unknown>, token?: string): Promise<AccelPreview> {
+  const env = await request<AccelPreview>("POST", "/api/v1/accel/preview", { token, body: profile });
+  return env.data;
+}
+
+export async function listConfigSections(token?: string): Promise<string[]> {
+  const env = await request<string[]>("GET", "/api/v1/config/sections", { token });
+  return env.data ?? [];
 }
 
 export async function listLinks(token?: string): Promise<Link[]> {

@@ -20,6 +20,7 @@ function mk(name: string, addr: string, platform: DevicePlatform, trust: TrustSt
     tenant_id: "acme-corp",
     name,
     mgmt_address: addr,
+    role: "cpe",
     platform,
     model,
     serial: "",

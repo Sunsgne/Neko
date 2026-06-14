@@ -15,6 +15,8 @@ import {
   Settings,
   ChevronsLeft,
   LogOut,
+  Server,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { logout } from "@/lib/api";
@@ -23,6 +25,8 @@ import { clearSession, currentToken, getCookie, EMAIL_COOKIE, ROLE_COOKIE } from
 const nav = [
   { href: "/", label: "仪表盘", icon: LayoutDashboard },
   { href: "/devices", label: "设备", icon: Router },
+  { href: "/backbone", label: "骨干节点", icon: Server },
+  { href: "/accel", label: "加速", icon: Rocket },
   { href: "/tenants", label: "租户", icon: Building2 },
   { href: "/topology", label: "拓扑", icon: Network },
   { href: "/dns", label: "DNS", icon: Globe },
