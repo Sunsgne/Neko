@@ -1,0 +1,54 @@
+# Full-stack deployment: builds and runs the Neko API + Web alongside the
+# data/infrastructure services. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
+#
+# docker-compose.yml provides postgres/redis/nats/victoriametrics/otel-collector.
+# This overlay adds the application services and points them at those backends.
+services:
+  api:
+    build:
+      context: ./backend
+    environment:
+      NEKO_HTTP_ADDR: ":8080"
+      NEKO_ENV: production
+      NEKO_STORE: postgres
+      NEKO_AUTH: "on"
+      NEKO_SEED: "true"            # seed demo accounts/data on first boot
+      NEKO_OPERATOR_TOKEN: ""       # session login is primary; token optional
+      DATABASE_URL: postgres://neko:neko@postgres:5432/neko?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      NATS_URL: nats://nats:4222
+      VM_URL: http://victoriametrics:8428
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+    command: ["/app/worker"]
+    environment:
+      NEKO_ENV: production
+      NEKO_STORE: postgres
+      DATABASE_URL: postgres://neko:neko@postgres:5432/neko?sslmode=disable
+      NATS_URL: nats://nats:4222
+      VM_URL: http://victoriametrics:8428
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+    environment:
+      # Browser talks to the API on the host-exposed port.
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api

@@ -73,6 +73,16 @@ cd web && npm install && npm run dev
 make check
 ```
 
+## 生产部署（容器）
+
+```bash
+# 构建并启动全栈（含 Postgres/Redis/NATS/VictoriaMetrics/OTel + API/Worker/Web）
+docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
+```
+
+- API 使用 PostgreSQL（自动迁移 + RLS）、启用鉴权，并暴露 `/metrics` 供 VictoriaMetrics 抓取。
+- 后端镜像为 distroless 静态二进制；前端为 Next.js standalone。
+
 ## 目录结构
 见 [`AGENTS.md` §6](./AGENTS.md) 与 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)。
 

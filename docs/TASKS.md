@@ -67,5 +67,5 @@
 
 ## Epic 10 — 交付与运维
 - [x] T10.1 GitHub Actions CI（make check）
-- [ ] T10.2 容器镜像与部署清单
+- [x] T10.2 容器镜像与部署清单（backend distroless 多阶段 Dockerfile + web Next standalone Dockerfile + docker-compose.deploy.yml 全栈编排）
 - [x] T10.3 端到端演示数据与种子脚本（catalog + seed + make demo / scripts/demo.sh）

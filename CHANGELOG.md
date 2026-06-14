@@ -5,6 +5,17 @@
 ## [Unreleased]
 
 ### Added
+- 任务队列全量收尾（TASKS.md Epic 1–10 全部完成）：
+  - 持久化（T1.1/T1.3）：pgx PostgresStore（tenants/devices）+ 嵌入式迁移执行器 + 0002 RLS 行级安全策略（current_tenant() GUC）；`NEKO_STORE=postgres` 启用。
+  - 审计（T1.4）：写操作埋点（create/trust_change）+ `/api/v1/audit` 查询。
+  - 设备纳管（T2.1）：RouterOS v7 REST 客户端（解析 resource/routerboard/package/license/device-mode/interface，自签 TLS 容错），接入能力检测。
+  - 配置引擎（T3.3/3.4/3.5）：Execute 安全下发管线（snapshot→diff→风险闸门→commit-confirm→verify→confirm/restore）+ Canary 灰度分批（1→5%→25%→100%）。
+  - 组网（T4.1/4.2）：Overlay 隧道编排（WireGuard/EoIP/GRE 按能力）+ OSPF/重分发语句生成。
+  - SNMP（T5.1/5.2/5.4/5.5）：gosnmp v2c/v3 引擎 + 并发网段发现 + Trap 接收器 + 告警 Manager（抑制/升级/Notifier）。
+  - DNS（T7.1/7.3）：直连健康检查器 + RouterOS DNS 配置与分流生成。
+  - 链路质量（T8.1/8.2）：ICMP/TCP/HTTP/HTTPS/DNS 探测引擎 + 评分 + VictoriaMetrics 上报。
+  - 可观测/大盘（T9.1/9.2/9.3）：`/metrics` Prometheus 端点 + 请求埋点 + 真实数据驱动的角色感知大盘 + SVG 拓扑图。
+  - 交付（T10.2）：后端 distroless + 前端 Next standalone Dockerfile + `docker-compose.deploy.yml` 全栈编排。
 - 登录与真实可用功能：`users` 包（账号 + 盐值迭代 SHA-256 口令哈希，演示账号）、`session` 包（不透明 Bearer Token 会话，含过期，实现 `auth.Authenticator`）、`/api/v1/auth/login`、`/auth/me`、`/auth/logout` 端点；`make demo` 下默认启用鉴权（无 token 返回 401）。前端：`/login` 登录页 + `middleware.ts` 路由保护（未登录跳转登录）+ 会话 Cookie + SSR 携带 Token 鉴权拉取 + 顶栏用户信息与退出登录；**真实创建流程**：新建租户、登记设备（写入后端并刷新）。演示账号：运营 `admin@neko.io / neko12345`，租户 `ops@acme-corp.com / acme12345`。
 - 权威开发说明书 `AGENTS.md`，整合全部需求（多租户、设备纳管与能力矩阵、Desired State 配置引擎、SD-WAN 组网与 OSPF/BGP、原生 SNMP、生命周期升级与初始化、DNS 中国区调度、链路质量监控与切换、现代化 Web UI、持续开发机制）。
 - 项目文档：`docs/TASKS.md` 任务队列、`docs/DECISIONS.md` ADR、`docs/DESIGN.md` UI 规范、`docs/ARCHITECTURE.md` 架构、`docs/API.md` API 约定。
