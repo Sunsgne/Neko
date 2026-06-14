@@ -49,6 +49,7 @@ type Repository interface {
 	Add(ctx context.Context, u User, password string) error
 	ByEmail(ctx context.Context, email string) (User, error)
 	Verify(ctx context.Context, email, password string) (User, error)
+	SetPassword(ctx context.Context, email, password string) error
 }
 
 // MemoryRepository is an in-memory user store.
@@ -82,6 +83,20 @@ func (r *MemoryRepository) ByEmail(_ context.Context, email string) (User, error
 		return User{}, ErrNotFound
 	}
 	return u, nil
+}
+
+// SetPassword updates a user's password (re-hashed with a fresh salt).
+func (r *MemoryRepository) SetPassword(_ context.Context, email, password string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := strings.ToLower(strings.TrimSpace(email))
+	u, ok := r.byEmail[key]
+	if !ok {
+		return ErrNotFound
+	}
+	u.salt, u.hash = hashPassword(password)
+	r.byEmail[key] = u
+	return nil
 }
 
 // Verify checks credentials and returns the user on success.

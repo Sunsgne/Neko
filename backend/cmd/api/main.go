@@ -123,6 +123,7 @@ func main() {
 		IDGen:     idgen.New,
 		Metrics:   metrics.NewRegistry(),
 		StoreKind: cfg.Store,
+		Version:   firstNonEmpty(os.Getenv("NEKO_VERSION"), "0.1.0"),
 		Auth:      authn,
 	})
 

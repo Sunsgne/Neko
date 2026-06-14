@@ -32,6 +32,7 @@ type Server struct {
 	idgen     func(string) string
 	metrics   *metrics.Registry
 	storeKind string
+	version   string
 	auth      auth.Authenticator // nil = auth disabled
 }
 
@@ -50,6 +51,7 @@ type Deps struct {
 	IDGen     func(string) string
 	Metrics   *metrics.Registry
 	StoreKind string
+	Version   string
 	Auth      auth.Authenticator
 }
 
@@ -73,8 +75,16 @@ func New(d Deps) *Server {
 		idgen:     d.IDGen,
 		metrics:   m,
 		storeKind: d.StoreKind,
+		version:   firstNonEmptyStr(d.Version, "dev"),
 		auth:      d.Auth,
 	}
+}
+
+func firstNonEmptyStr(v, fallback string) string {
+	if v != "" {
+		return v
+	}
+	return fallback
 }
 
 // Handler returns the fully configured http.Handler with all routes and
@@ -91,6 +101,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.handleLogout)
 	mux.HandleFunc("GET /api/v1/auth/me", s.handleMe)
+	mux.HandleFunc("POST /api/v1/auth/password", s.handleChangePassword)
+	mux.HandleFunc("GET /api/v1/system", s.handleSystem)
 
 	// Tenants (operator scope)
 	mux.HandleFunc("GET /api/v1/tenants", s.handleListTenants)

@@ -251,6 +251,21 @@ export async function listConfigSections(token?: string): Promise<string[]> {
   return env.data ?? [];
 }
 
+export interface SystemInfo {
+  version: string;
+  store: string;
+  auth_enabled: boolean;
+}
+
+export async function getSystem(token?: string): Promise<SystemInfo> {
+  const env = await request<SystemInfo>("GET", "/api/v1/system", { token });
+  return env.data;
+}
+
+export async function changePassword(oldPassword: string, newPassword: string, token?: string): Promise<void> {
+  await request("POST", "/api/v1/auth/password", { token, body: { old_password: oldPassword, new_password: newPassword } });
+}
+
 export interface Uplink {
   name: string;
   gateway: string;

@@ -156,9 +156,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             )}
           </Link>
-          <button className="rounded-lg p-2 text-muted hover:bg-surface hover:text-foreground">
+          <Link
+            href="/settings"
+            className={cn("rounded-lg p-2 hover:bg-surface hover:text-foreground", pathname === "/settings" ? "text-primary" : "text-muted")}
+          >
             <Settings className="h-4 w-4" />
-          </button>
+          </Link>
           <div className="flex items-center gap-2 border-l border-border pl-3">
             <div className="hidden text-right sm:block">
               <div className="text-xs font-medium leading-tight">{email || "未登录"}</div>
