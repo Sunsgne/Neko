@@ -95,6 +95,20 @@ func BuildState(in Intent) configengine.State {
 		})
 	}
 
+	// Redistribution: model as routing filter rules that import one protocol
+	// into another, gated by a filter chain to prevent leaking routes.
+	for _, rd := range in.Redistributions {
+		sts = append(sts, configengine.Statement{
+			Path: "/routing/filter/rule",
+			Key:  "redist-" + rd.Source + "-to-" + rd.Into,
+			Attributes: map[string]string{
+				"chain":  rd.Into + "-redistribute",
+				"source": rd.Source,
+				"rule":   "if (chain==\"" + rd.Filter + "\") { accept }",
+			},
+		})
+	}
+
 	return configengine.State{Statements: sts}
 }
 

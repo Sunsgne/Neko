@@ -32,8 +32,8 @@
 - [x] T3.5 批量 Canary 灰度编排（PlanCanaryBatches：1 台→5%→25%→100%，全覆盖）
 
 ## Epic 4 — SD-WAN 组网与动态路由
-- [ ] T4.1 Overlay 隧道编排（WireGuard/IPIP/EoIP/GRE 按能力）
-- [~] T4.2 静态路由 + OSPF 编排（routing.Intent 模型 + BuildState 生成 /ip/route、/routing/ospf 语句）
+- [x] T4.1 Overlay 隧道编排（SelectTunnelType 按能力选 WireGuard/EoIP/GRE/IPIP；BuildTunnelState 生成 wireguard+peer / 隧道接口 + /ip/address 入 VRF）
+- [x] T4.2 静态路由 + OSPF 编排 + 重分发（BuildState 生成 /ip/route、/routing/ospf、/routing/filter/rule 重分发规则）
 - [x] T4.3 BGP（eBGP/iBGP 自动分类）+ Route Reflector client + BFD + 双 POP 邻居建模与语句生成
 - [x] T4.4 路由策略：汇总（aggregate）+ 重分发建模 + 防泄漏校验（VRF/community 必填、eBGP 强制 import/export 过滤、重分发强制过滤、iBGP 全互联告警）
 
