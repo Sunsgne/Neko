@@ -76,6 +76,8 @@ services:
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEKO_PUBLIC_API_URL:-http://localhost:8080}
+      # Server-side (RSC + middleware) reaches the API over the compose network.
+      NEKO_API_INTERNAL_URL: http://api:8080
     ports:
       - "${NEKO_WEB_PORT:-3000}:3000"
     depends_on:

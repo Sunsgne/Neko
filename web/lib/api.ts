@@ -1,8 +1,19 @@
 // API client and shared types for the Neko control plane.
 // Mirrors backend/internal/store/models.go and docs/API.md.
 
+// Browser-facing API base (inlined at build for client bundles).
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+
+// Resolve the base URL per execution context: the browser must use the public
+// URL, while server-side (RSC, route handlers) prefers the internal service
+// URL (e.g. http://api:8080) to avoid NAT hairpin and reduce latency.
+function baseURL(): string {
+  if (typeof window === "undefined") {
+    return process.env.NEKO_API_INTERNAL_URL || API_BASE_URL;
+  }
+  return API_BASE_URL;
+}
 
 export type TenantStatus = "active" | "suspended";
 
@@ -162,7 +173,7 @@ async function request<T>(
   path: string,
   opts: { token?: string; body?: unknown } = {},
 ): Promise<Envelope<T>> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${baseURL()}${path}`, {
     method,
     headers: authHeaders(opts.token),
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
