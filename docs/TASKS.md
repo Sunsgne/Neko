@@ -19,7 +19,7 @@
 - [x] T1.4 审计日志：append-only 记录器 + 写操作埋点（create/trust_change）+ /api/v1/audit 查询 API
 
 ## Epic 2 — 设备纳管与能力矩阵
-- [~] T2.1 RouterOS API/SSH 客户端封装（已定义 Collector 接口 + StaticCollector；REST 实现待补）
+- [x] T2.1 RouterOS v7 REST 客户端（RestCollector，net/http + Basic Auth + 自签 TLS 容错，解析 resource/routerboard/package/license/device-mode/interface），已接入 inventory
 - [x] T2.2 型号/版本/架构/包/License/Device Mode 识别（routeros.Detect + 测试）
 - [x] T2.3 接口与接口能力发现，归一化能力矩阵（store.CapabilityMatrix）
 - [x] T2.4 Trust State 状态机 + 设备纳管 Detect/SetTrustState + API 端点（含降级）

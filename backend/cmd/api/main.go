@@ -18,6 +18,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/idgen"
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/observability"
+	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/seed"
 	"github.com/neko/sdwan/backend/internal/session"
 	"github.com/neko/sdwan/backend/internal/store"
@@ -66,9 +67,10 @@ func main() {
 
 	now := func() time.Time { return time.Now().UTC() }
 	tenantSvc := tenant.NewService(st.Tenants(), func() string { return idgen.New("ten") }, now)
-	// Collector is nil in bootstrap; a RouterOS REST collector is wired in
-	// once device credentials/connectivity land (Epic 2 follow-up).
-	inventorySvc := inventory.NewService(st.Devices(), nil, func() string { return idgen.New("dev") }, now)
+	// RouterOS v7 REST collector drives capability detection against real
+	// devices (credentials carried per-target; tolerant of self-signed TLS).
+	collector := routeros.NewRestCollector()
+	inventorySvc := inventory.NewService(st.Devices(), collector, func() string { return idgen.New("dev") }, now)
 
 	// Authentication: enabled when seeding a demo or when NEKO_AUTH=on. Backed
 	// by a session store (bearer tokens) with user accounts.
