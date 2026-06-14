@@ -12,6 +12,7 @@
 - PostgreSQL 迁移脚本：tenants/users/sites/devices/links/audit 等核心表。
 - 首个纵向切片：Tenant + Device REST API（内存仓储，可无 DB 运行）+ 单元测试。
 - Next.js 14 + TypeScript 控制台骨架与现代化暗色 UI shell（仪表盘 / 设备 / 租户）。
+- Demo 与监控读模型：`catalog` 包（链路/告警/DNS 读模型 + 租户作用域列表）；`seed` 包（NEKO_SEED=true 注入 3 租户/5 设备含能力矩阵/5 链路含评分/3 告警/6 DNS）；新增 `/api/v1/links`、`/api/v1/alerts`、`/api/v1/dns/servers` 端点。前端 Links/DNS 页改为实时数据 + 新增 Alerts 页与导航。一键 Demo：`make demo` / `scripts/demo.sh` 启动后端（内存+演示数据）+ 前端控制台，无需外部依赖。
 - Epic 1：鉴权与审计基础。`auth` 包：Principal（运营/租户作用域）、Token SHA-256 哈希存储、内存 Authenticator；httpapi 可选 Bearer Token 鉴权中间件（NEKO_AUTH=on 启用，运营 token 可经 X-Tenant-Id 切租户，租户 token 锁定自身，健康端点公开）。`audit` 包：append-only 审计记录器（记录 who/when/object/before/after，仅追加与查询）。均覆盖单元测试。
 - Epic 6：生命周期管理。`lifecycle` 包：RouterOS 版本解析与数值比较、`NeedsUpgrade`；`PlanUpgrade` 生成受控升级步骤（下载→校验→升级→重启→验证→健康检查；RouterBOARD 额外的 RouterBOOT 升级排在其后并二次重启，CHR/x86 跳过）；`InitTemplate` 生成设备开局 Desired State（identity/时区/NTP/SNMP/管理防火墙）。覆盖单元测试。
 - Epic 4：SD-WAN 动态路由。`routing` 包：路由意图模型（静态/OSPF/BGP/汇总/重分发 + 每租户 VRF 与 community），BGP 邻居 eBGP/iBGP 自动分类，`Validate` 防路由泄漏校验（VRF/community 必填、eBGP 强制 import+export 过滤、重分发强制过滤、iBGP 全互联建议 RR、eBGP 建议 BFD），`BuildState` 将意图生成 RouterOS v7 声明式路由语句（含 RR client、BFD、VRF 隔离）。覆盖单元测试。

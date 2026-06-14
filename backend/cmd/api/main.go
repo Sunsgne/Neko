@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/neko/sdwan/backend/internal/auth"
+	"github.com/neko/sdwan/backend/internal/catalog"
 	"github.com/neko/sdwan/backend/internal/config"
 	"github.com/neko/sdwan/backend/internal/httpapi"
 	"github.com/neko/sdwan/backend/internal/idgen"
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/observability"
+	"github.com/neko/sdwan/backend/internal/seed"
 	"github.com/neko/sdwan/backend/internal/store"
 	"github.com/neko/sdwan/backend/internal/tenant"
 )
@@ -33,6 +35,15 @@ func main() {
 		logger.Warn("unsupported store, falling back to memory (postgres lands in Epic 1)", "store", cfg.Store)
 		st = store.NewMemory()
 		cfg.Store = "memory"
+	}
+
+	cat := catalog.New()
+	if cfg.Seed {
+		if err := seed.Demo(context.Background(), st, cat); err != nil {
+			logger.Error("seed failed", "err", err)
+		} else {
+			logger.Info("demo data seeded (NEKO_SEED=true)")
+		}
 	}
 
 	now := func() time.Time { return time.Now().UTC() }
@@ -57,6 +68,7 @@ func main() {
 		Logger:    logger,
 		Tenants:   tenantSvc,
 		Inventory: inventorySvc,
+		Catalog:   cat,
 		StoreKind: cfg.Store,
 		Auth:      authn,
 	})

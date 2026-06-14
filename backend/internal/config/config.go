@@ -23,6 +23,8 @@ type Config struct {
 	// development for zero-friction; set NEKO_AUTH=on in production.
 	AuthEnabled   bool
 	OperatorToken string // seed operator token when auth is enabled
+	// Seed populates demo data into the memory store/catalog at startup.
+	Seed bool
 }
 
 // Load reads configuration from the environment, applying sensible defaults
@@ -41,6 +43,7 @@ func Load() Config {
 		ServiceName:   env("OTEL_SERVICE_NAME", "neko-api"),
 		AuthEnabled:   strings.EqualFold(env("NEKO_AUTH", "off"), "on"),
 		OperatorToken: env("NEKO_OPERATOR_TOKEN", ""),
+		Seed:          strings.EqualFold(env("NEKO_SEED", "false"), "true"),
 	}
 }
 

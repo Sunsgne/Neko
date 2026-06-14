@@ -24,6 +24,7 @@ const nav = [
   { href: "/topology", label: "拓扑", icon: Network },
   { href: "/dns", label: "DNS", icon: Globe },
   { href: "/links", label: "链路质量", icon: Activity },
+  { href: "/alerts", label: "告警", icon: Bell },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

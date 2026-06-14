@@ -38,6 +38,42 @@ export interface Device {
   updated_at: string;
 }
 
+export interface Link {
+  id: string;
+  tenant_id: string;
+  name: string;
+  kind: "wan" | "overlay";
+  isp: string;
+  role: "primary" | "backup";
+  status: string;
+  latency_ms: number;
+  jitter_ms: number;
+  loss: number;
+  score: number;
+}
+
+export interface Alert {
+  id: string;
+  tenant_id: string;
+  device_id: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  detail: string;
+  state: "firing" | "resolved";
+  fired_at: string;
+}
+
+export interface DNSServer {
+  id: string;
+  tenant_id: string;
+  address: string;
+  region: string;
+  isp: string;
+  supports_ecs: boolean;
+  healthy: boolean;
+  latency_ms: number;
+}
+
 export interface Envelope<T> {
   data: T;
   meta?: { page: number; page_size: number; total: number };
@@ -61,5 +97,20 @@ export async function listTenants(): Promise<Tenant[]> {
 
 export async function listDevices(tenantId?: string): Promise<Device[]> {
   const env = await getJSON<Device[]>("/api/v1/devices", tenantId);
+  return env.data ?? [];
+}
+
+export async function listLinks(tenantId?: string): Promise<Link[]> {
+  const env = await getJSON<Link[]>("/api/v1/links", tenantId);
+  return env.data ?? [];
+}
+
+export async function listAlerts(tenantId?: string): Promise<Alert[]> {
+  const env = await getJSON<Alert[]>("/api/v1/alerts", tenantId);
+  return env.data ?? [];
+}
+
+export async function listDNSServers(tenantId?: string): Promise<DNSServer[]> {
+  const env = await getJSON<DNSServer[]>("/api/v1/dns/servers", tenantId);
   return env.data ?? [];
 }

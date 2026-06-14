@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/neko/sdwan/backend/internal/auth"
+	"github.com/neko/sdwan/backend/internal/catalog"
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/tenant"
 )
@@ -15,6 +16,7 @@ type Server struct {
 	logger    *slog.Logger
 	tenants   *tenant.Service
 	inventory *inventory.Service
+	catalog   *catalog.Catalog
 	storeKind string
 	auth      auth.Authenticator // nil = auth disabled
 }
@@ -24,6 +26,7 @@ type Deps struct {
 	Logger    *slog.Logger
 	Tenants   *tenant.Service
 	Inventory *inventory.Service
+	Catalog   *catalog.Catalog
 	StoreKind string
 	Auth      auth.Authenticator
 }
@@ -34,6 +37,7 @@ func New(d Deps) *Server {
 		logger:    d.Logger,
 		tenants:   d.Tenants,
 		inventory: d.Inventory,
+		catalog:   d.Catalog,
 		storeKind: d.StoreKind,
 		auth:      d.Auth,
 	}
@@ -59,6 +63,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleGetDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/detect", s.handleDetectDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/trust", s.handleSetDeviceTrust)
+
+	// Monitoring read models.
+	mux.HandleFunc("GET /api/v1/links", s.handleListLinks)
+	mux.HandleFunc("GET /api/v1/alerts", s.handleListAlerts)
+	mux.HandleFunc("GET /api/v1/dns/servers", s.handleListDNSServers)
 
 	// Stateless planning/validation tools (preview before apply).
 	mux.HandleFunc("POST /api/v1/tools/config-diff", s.handleConfigDiff)
