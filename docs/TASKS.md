@@ -51,9 +51,9 @@
 - [x] T6.4 设备初始化开局模板（identity/时区/NTP/SNMP/管理防火墙，生成 Desired State）
 
 ## Epic 7 — DNS 管理与中国区调度
-- [~] T7.1 DNS 服务器池模型（dns.Server）；健康检查器待补
+- [x] T7.1 DNS 服务器池模型 + 健康检查器（Checker：直连各 DNS 解析探针域名，测延迟/正确性，并发 CheckAll）
 - [x] T7.2 地域+运营商调度策略 + ECS（dns.Select 加权评分 + 公共兜底 + 确定性排序）
-- [ ] T7.3 下发到 RouterOS（/ip/dns + 分流）+ 解析质量可观测
+- [x] T7.3 下发到 RouterOS（BuildConfig 生成 /ip/dns + 分流 forwarders/static FWD）+ 解析质量可观测（HealthResult 延迟/成功率）
 
 ## Epic 8 — 链路质量监控、上报与切换
 - [ ] T8.1 探测引擎（ICMP/TCP/HTTP/HTTPS/DNS）+ 延迟/丢包/抖动
