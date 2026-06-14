@@ -42,6 +42,7 @@
 | GET | `/api/v1/devices?role=backbone\|gateway\|cpe` | 按角色筛选设备（骨干节点管理） |
 | GET | `/api/v1/devices/{id}/config` | 读取设备实时配置快照（REST，无需登录设备） |
 | PUT | `/api/v1/devices/{id}/config` | 下发全功能配置到设备（REST，snapshot→diff→apply→回滚） |
+| POST | `/api/v1/devices/{id}/orchestrate` | 站点编排：链路选择(failover/ECMP)+加速 合成配置，`dry_run` 预览或一键下发 |
 | GET | `/api/v1/accel/modes` | 加速业务模式列表（含海外直连 overseas_direct） |
 | POST | `/api/v1/accel/preview` | 生成加速模式对应的 RouterOS 配置预览 |
 | GET | `/api/v1/config/sections` | 平台全功能管理的 RouterOS 配置段目录 |
