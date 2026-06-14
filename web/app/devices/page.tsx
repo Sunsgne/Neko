@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
 import { listDevices, type Device, type TrustState, type DevicePlatform } from "@/lib/api";
 import { serverToken } from "@/lib/server-session";
 import { RegisterDeviceButton } from "@/components/register-device";
+import { DeviceActions } from "@/components/device-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ function mk(name: string, addr: string, platform: DevicePlatform, trust: TrustSt
     model,
     serial: "",
     trust_state: trust,
+    enrolled: trust === "managed",
     created_at: now,
     updated_at: now,
   };
@@ -75,29 +78,57 @@ export default async function DevicesPage() {
             <thead>
               <tr className="border-y border-border text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-5 py-3 font-medium">名称</th>
+                <th className="px-5 py-3 font-medium">在线</th>
                 <th className="px-5 py-3 font-medium">管理地址</th>
-                <th className="px-5 py-3 font-medium">平台</th>
-                <th className="px-5 py-3 font-medium">型号</th>
+                <th className="px-5 py-3 font-medium">平台 / 型号</th>
+                <th className="px-5 py-3 font-medium">版本</th>
+                <th className="px-5 py-3 font-medium">CPU / 内存</th>
                 <th className="px-5 py-3 font-medium">信任状态</th>
+                <th className="px-5 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
-              {devices.map((d) => (
-                <tr key={d.id} className="border-b border-border/60 transition-colors hover:bg-elevated/40">
-                  <td className="px-5 py-3 font-medium">{d.name}</td>
-                  <td className="px-5 py-3 font-mono text-xs text-muted">{d.mgmt_address}</td>
-                  <td className="px-5 py-3">
-                    <Badge tone={platformTone[d.platform]}>{d.platform}</Badge>
-                  </td>
-                  <td className="px-5 py-3 text-muted">{d.model || "—"}</td>
-                  <td className="px-5 py-3">
-                    <span className="inline-flex items-center gap-2">
-                      <StatusDot tone={trustTone[d.trust_state]} />
-                      {d.trust_state}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {devices.map((d) => {
+                const st = d.status;
+                const memPct = st && st.total_memory_bytes > 0
+                  ? Math.round((1 - st.free_memory_bytes / st.total_memory_bytes) * 100)
+                  : null;
+                return (
+                  <tr key={d.id} className="border-b border-border/60 transition-colors hover:bg-elevated/40">
+                    <td className="px-5 py-3 font-medium">
+                      <Link href={`/devices/${d.id}`} className="hover:text-primary">{d.name}</Link>
+                    </td>
+                    <td className="px-5 py-3">
+                      {d.enrolled ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <StatusDot tone={st?.online ? "success" : "danger"} />
+                          {st?.online ? "在线" : "离线"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted">未纳管</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted">{d.mgmt_address}</td>
+                    <td className="px-5 py-3">
+                      <Badge tone={platformTone[d.platform]}>{d.platform}</Badge>
+                      <span className="ml-2 text-muted">{d.model || "—"}</span>
+                    </td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted">{st?.version || "—"}</td>
+                    <td className="px-5 py-3 font-mono text-xs text-muted">
+                      {st?.online ? `${st.cpu_load_percent}% / ${memPct ?? "—"}%` : "—"}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex items-center gap-2">
+                        <StatusDot tone={trustTone[d.trust_state]} />
+                        {d.trust_state}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <DeviceActions deviceId={d.id} enrolled={d.enrolled} compact />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

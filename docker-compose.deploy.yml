@@ -48,6 +48,18 @@ services:
       postgres:
         condition: service_healthy
 
+  # RouterOS v7 REST simulator — lets the platform demonstrate real device
+  # management (enroll → poll → config push) without physical hardware.
+  rosim:
+    build:
+      context: ./backend
+    command: ["/app/rosim"]
+    restart: unless-stopped
+    environment:
+      ROSIM_ADDR: ":8729"
+      ROSIM_BOARD: "CCR2004-1G-12S+2XS"
+      ROSIM_VERSION: "7.14.3"
+
   web:
     build:
       context: ./web

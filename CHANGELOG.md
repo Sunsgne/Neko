@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Added
+- **真正的设备托管(production device management)**:
+  - `secret` 包:AES-256-GCM 对设备凭据做静态加密(密钥来自 `NEKO_SECRET_KEY`,部署脚本生成)。
+  - 凭据仓储(memory+pg,复用 `device_credentials` 表)+ 设备实时状态(`status` JSONB,迁移 0005)+ `enrolled` 标记。
+  - `inventory.Enroll`:录入凭据→加密保存→连接设备(RouterOS REST)→拉取型号/能力→置为 managed;`inventory.Poll`:用保存的凭据刷新在线/版本/CPU/内存/接口实时状态。免登录设备即可管理。
+  - API:`POST /devices/{id}/enroll`、`POST /devices/{id}/poll`;设备列表/详情返回实时状态。
+  - Worker:每 30s 对已托管设备轮询健康状态。
+  - **RouterOS v7 REST 模拟器** `cmd/rosim`(自签 HTTPS):无物理设备也能端到端演示纳管/轮询/下发;compose 增 `rosim` 服务并种子一台 `sim-edge-01` 指向它。
+  - 前端:设备列表显示在线/版本/CPU·内存 + 「纳管/轮询」操作;新增**设备详情页**(身份/实时状态/能力矩阵/接口)。
+  - 已在真实 PostgreSQL 16 + 模拟器上端到端验证(register→enroll→managed→live poll)。
+
 ### Fixed
 - **修复运营端登记骨干/出口节点报 500(Postgres)**：平台自营节点(backbone/gateway/POP)不归属租户,但 `devices.tenant_id` 原为 `NOT NULL + 外键`,运营端创建时空 tenant 触发约束错误。新增迁移 `0004_device_tenant_nullable.sql`(tenant_id 可空),Postgres 写入空租户时存 NULL、读取时容错。已在真实 PostgreSQL 16 上复现并验证修复(HTTP 500 → 201)。
 

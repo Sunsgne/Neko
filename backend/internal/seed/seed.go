@@ -71,6 +71,14 @@ func Demo(ctx context.Context, st store.Store, cat *catalog.Catalog) error {
 			Platform: store.PlatformRouterBOARD, Model: "RB5009UG+S+IN", Serial: "HEX7Q8", TrustState: store.TrustDiscovered,
 			LastSeenAt: &seen, CreatedAt: now, UpdatedAt: now,
 		},
+		{
+			// Points at the bundled RouterOS simulator (compose service "rosim").
+			// Click 纳管 in the UI (any username/password) to manage it live.
+			ID: "dev_sim01", TenantID: "ten_acme", Name: "sim-edge-01", MgmtAddress: "rosim:8729",
+			Role: store.RoleCPE, Region: "lab",
+			Platform: store.PlatformUnknown, TrustState: store.TrustDiscovered,
+			CreatedAt: now, UpdatedAt: now,
+		},
 	}
 	for i := range devices {
 		_ = st.Devices().Create(ctx, &devices[i])

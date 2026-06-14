@@ -6,9 +6,9 @@ import { RegisterDeviceButton } from "@/components/register-device";
 export const dynamic = "force-dynamic";
 
 const demo: Device[] = [
-  { id: "1", tenant_id: "", name: "pop-sh-core", mgmt_address: "10.10.0.1", role: "backbone", region: "cn-east", platform: "routerboard", model: "CCR2216-1G-12XS-2XQ", serial: "HEXBB1", trust_state: "managed", created_at: "", updated_at: "" },
-  { id: "2", tenant_id: "", name: "pop-gz-core", mgmt_address: "10.30.0.1", role: "backbone", region: "cn-south", platform: "chr", model: "CHR", serial: "", trust_state: "managed", created_at: "", updated_at: "" },
-  { id: "3", tenant_id: "", name: "gw-hk-exit", mgmt_address: "10.200.0.1", role: "gateway", region: "overseas-hk", platform: "chr", model: "CHR", serial: "", trust_state: "managed", created_at: "", updated_at: "" },
+  { id: "1", tenant_id: "", name: "pop-sh-core", mgmt_address: "10.10.0.1", role: "backbone", region: "cn-east", platform: "routerboard", model: "CCR2216-1G-12XS-2XQ", serial: "HEXBB1", trust_state: "managed", enrolled: true, created_at: "", updated_at: "" },
+  { id: "2", tenant_id: "", name: "pop-gz-core", mgmt_address: "10.30.0.1", role: "backbone", region: "cn-south", platform: "chr", model: "CHR", serial: "", trust_state: "managed", enrolled: true, created_at: "", updated_at: "" },
+  { id: "3", tenant_id: "", name: "gw-hk-exit", mgmt_address: "10.200.0.1", role: "gateway", region: "overseas-hk", platform: "chr", model: "CHR", serial: "", trust_state: "managed", enrolled: true, created_at: "", updated_at: "" },
 ];
 
 const platformTone: Record<string, "primary" | "success" | "warning" | "neutral"> = {

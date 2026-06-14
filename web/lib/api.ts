@@ -26,6 +26,41 @@ export type TrustState =
 
 export type DeviceRole = "cpe" | "backbone" | "gateway";
 
+export interface DeviceStatus {
+  online: boolean;
+  version?: string;
+  uptime?: string;
+  cpu_load_percent: number;
+  free_memory_bytes: number;
+  total_memory_bytes: number;
+  board_temp_c?: number;
+  interfaces_up: number;
+  interfaces_total: number;
+  last_polled_at?: string | null;
+  last_error?: string;
+}
+
+export interface InterfaceCapability {
+  name: string;
+  type: string;
+  speed_mbps: number;
+  features: string[];
+}
+
+export interface CapabilityMatrix {
+  routeros_version: string;
+  architecture: string;
+  board_name: string;
+  packages: string[];
+  license_level: number;
+  device_mode: string;
+  interfaces: InterfaceCapability[];
+  supports_bgp: boolean;
+  supports_ospf: boolean;
+  supports_wireguard: boolean;
+  supports_container: boolean;
+}
+
 export interface Device {
   id: string;
   tenant_id: string;
@@ -37,6 +72,9 @@ export interface Device {
   model: string;
   serial: string;
   trust_state: TrustState;
+  enrolled: boolean;
+  capabilities?: CapabilityMatrix | null;
+  status?: DeviceStatus | null;
   last_seen_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -215,6 +253,23 @@ export async function orchestrate(
   token?: string,
 ): Promise<OrchestrateResult> {
   const env = await request<OrchestrateResult>("POST", `/api/v1/devices/${deviceId}/orchestrate`, { token, body });
+  return env.data;
+}
+
+export async function getDevice(id: string, token?: string): Promise<Device> {
+  const env = await request<Device>("GET", `/api/v1/devices/${id}`, { token });
+  return env.data;
+}
+
+export async function enrollDevice(id: string, username: string, password: string, token?: string): Promise<Device> {
+  const env = await request<Device>("POST", `/api/v1/devices/${id}/enroll`, {
+    token, body: { username, password },
+  });
+  return env.data;
+}
+
+export async function pollDevice(id: string, token?: string): Promise<Device> {
+  const env = await request<Device>("POST", `/api/v1/devices/${id}/poll`, { token });
   return env.data;
 }
 
