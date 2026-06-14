@@ -38,11 +38,11 @@
 - [x] T4.4 路由策略：汇总（aggregate）+ 重分发建模 + 防泄漏校验（VRF/community 必填、eBGP 强制 import/export 过滤、重分发强制过滤、iBGP 全互联告警）
 
 ## Epic 5 — SNMP 原生引擎
-- [ ] T5.1 gosnmp 引擎（v2c/v3）+ 凭据管理
-- [ ] T5.2 设备发现（网段扫描 + sysObjectID 识别）
-- [~] T5.3 轮询计算：接口计数器 → bps（含 32 位回绕/64 位重置处理）+ 利用率（snmp 包）；VictoriaMetrics 写入待补
-- [ ] T5.4 Trap 接收器（:162）+ 解析
-- [~] T5.5 告警规则引擎（alerting 包：阈值 + for-duration + 去重 + firing/resolved 转换 + 多 series 隔离）；抑制/升级/通知渠道待补
+- [x] T5.1 gosnmp 引擎（v2c + v3 authPriv，Get 标准 OID，凭据管理）
+- [x] T5.2 设备发现（Discover：并发网段扫描 + sysDescr/sysObjectID/sysName 识别）
+- [x] T5.3 轮询计算：接口计数器 → bps（32 位回绕/64 位重置处理）+ 利用率（VictoriaMetrics 写入见 T8.2 Reporter）
+- [x] T5.4 Trap 接收器（TrapListener :162 + 解析为归一化 Trap）
+- [x] T5.5 告警引擎 + Manager：阈值/for-duration/去重/firing↔resolved + 抑制（同设备高severity 抑制低severity）+ 升级（持续未恢复重通知）+ Notifier 通知渠道接口
 
 ## Epic 6 — 版本与初始化
 - [x] T6.1 RouterOS 版本解析与比较（数值非字典序）+ NeedsUpgrade（lifecycle.CompareVersions）
