@@ -8,7 +8,9 @@ import (
 	"github.com/neko/sdwan/backend/internal/auth"
 	"github.com/neko/sdwan/backend/internal/catalog"
 	"github.com/neko/sdwan/backend/internal/inventory"
+	"github.com/neko/sdwan/backend/internal/session"
 	"github.com/neko/sdwan/backend/internal/tenant"
+	"github.com/neko/sdwan/backend/internal/users"
 )
 
 // Server holds dependencies for the HTTP API.
@@ -17,6 +19,8 @@ type Server struct {
 	tenants   *tenant.Service
 	inventory *inventory.Service
 	catalog   *catalog.Catalog
+	users     users.Repository
+	sessions  *session.Store
 	storeKind string
 	auth      auth.Authenticator // nil = auth disabled
 }
@@ -27,6 +31,8 @@ type Deps struct {
 	Tenants   *tenant.Service
 	Inventory *inventory.Service
 	Catalog   *catalog.Catalog
+	Users     users.Repository
+	Sessions  *session.Store
 	StoreKind string
 	Auth      auth.Authenticator
 }
@@ -38,6 +44,8 @@ func New(d Deps) *Server {
 		tenants:   d.Tenants,
 		inventory: d.Inventory,
 		catalog:   d.Catalog,
+		users:     d.Users,
+		sessions:  d.Sessions,
 		storeKind: d.StoreKind,
 		auth:      d.Auth,
 	}
@@ -51,6 +59,11 @@ func (s *Server) Handler() http.Handler {
 	// Health
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("GET /readyz", s.handleReadyz)
+
+	// Auth
+	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.handleLogout)
+	mux.HandleFunc("GET /api/v1/auth/me", s.handleMe)
 
 	// Tenants (operator scope)
 	mux.HandleFunc("GET /api/v1/tenants", s.handleListTenants)

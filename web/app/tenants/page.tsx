@@ -1,5 +1,7 @@
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
 import { listTenants, type Tenant } from "@/lib/api";
+import { serverToken } from "@/lib/server-session";
+import { AddTenantButton } from "@/components/add-tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -16,18 +18,23 @@ function mk(name: string, slug: string): Tenant {
 
 export default async function TenantsPage() {
   let tenants: Tenant[] = [];
+  let live = false;
   try {
-    tenants = await listTenants();
+    tenants = await listTenants(serverToken());
+    live = true;
   } catch {
     tenants = [];
   }
-  if (tenants.length === 0) tenants = demo;
+  if (tenants.length === 0 && !live) tenants = demo;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">租户管理</h1>
-        <p className="mt-1 text-sm text-muted">运营端 · 多租户严格隔离 (PostgreSQL RLS)</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">租户管理</h1>
+          <p className="mt-1 text-sm text-muted">运营端 · 多租户严格隔离 (PostgreSQL RLS)</p>
+        </div>
+        <AddTenantButton />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,12 +1,13 @@
 import { Router, Activity, AlertTriangle, Gauge, ArrowUpRight } from "lucide-react";
 import { Card, CardHeader, Kpi, Badge, StatusDot } from "@/components/ui";
 import { listDevices, type Device } from "@/lib/api";
+import { serverToken } from "@/lib/server-session";
 
 export const dynamic = "force-dynamic";
 
 async function safeDevices(): Promise<Device[]> {
   try {
-    return await listDevices();
+    return await listDevices(serverToken());
   } catch {
     return [];
   }

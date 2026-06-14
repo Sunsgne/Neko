@@ -1,5 +1,6 @@
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
 import { listDNSServers, type DNSServer } from "@/lib/api";
+import { serverToken } from "@/lib/server-session";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +22,14 @@ const ispLabel: Record<string, string> = {
 
 export default async function DnsPage() {
   let servers: DNSServer[] = [];
+  let live = false;
   try {
-    servers = await listDNSServers();
+    servers = await listDNSServers(serverToken());
+    live = true;
   } catch {
     servers = [];
   }
-  if (servers.length === 0) servers = demo;
+  if (servers.length === 0 && !live) servers = demo;
 
   const healthy = servers.filter((s) => s.healthy).length;
 

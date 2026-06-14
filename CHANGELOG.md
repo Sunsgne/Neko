@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- 登录与真实可用功能：`users` 包（账号 + 盐值迭代 SHA-256 口令哈希，演示账号）、`session` 包（不透明 Bearer Token 会话，含过期，实现 `auth.Authenticator`）、`/api/v1/auth/login`、`/auth/me`、`/auth/logout` 端点；`make demo` 下默认启用鉴权（无 token 返回 401）。前端：`/login` 登录页 + `middleware.ts` 路由保护（未登录跳转登录）+ 会话 Cookie + SSR 携带 Token 鉴权拉取 + 顶栏用户信息与退出登录；**真实创建流程**：新建租户、登记设备（写入后端并刷新）。演示账号：运营 `admin@neko.io / neko12345`，租户 `ops@acme-corp.com / acme12345`。
 - 权威开发说明书 `AGENTS.md`，整合全部需求（多租户、设备纳管与能力矩阵、Desired State 配置引擎、SD-WAN 组网与 OSPF/BGP、原生 SNMP、生命周期升级与初始化、DNS 中国区调度、链路质量监控与切换、现代化 Web UI、持续开发机制）。
 - 项目文档：`docs/TASKS.md` 任务队列、`docs/DECISIONS.md` ADR、`docs/DESIGN.md` UI 规范、`docs/ARCHITECTURE.md` 架构、`docs/API.md` API 约定。
 - 仓库基建：根 `README.md`、`.gitignore`、`Makefile`、`docker-compose.yml`（Postgres/Redis/NATS/VictoriaMetrics/OTel）、`.env.example`、`LICENSE`。

@@ -1,5 +1,7 @@
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
 import { listDevices, type Device, type TrustState, type DevicePlatform } from "@/lib/api";
+import { serverToken } from "@/lib/server-session";
+import { RegisterDeviceButton } from "@/components/register-device";
 
 export const dynamic = "force-dynamic";
 
@@ -44,20 +46,25 @@ const trustTone: Record<TrustState, "neutral" | "primary" | "warning" | "success
 
 export default async function DevicesPage() {
   let devices: Device[] = [];
+  let live = false;
   try {
-    devices = await listDevices();
+    devices = await listDevices(serverToken());
+    live = true;
   } catch {
     devices = [];
   }
-  if (devices.length === 0) devices = demo;
+  if (devices.length === 0 && !live) devices = demo;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">设备纳管</h1>
-        <p className="mt-1 text-sm text-muted">
-          自动识别 RouterBOARD / CHR / x86，建立能力矩阵 · 基于能力而非型号下发
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">设备纳管</h1>
+          <p className="mt-1 text-sm text-muted">
+            自动识别 RouterBOARD / CHR / x86，建立能力矩阵 · 基于能力而非型号下发
+          </p>
+        </div>
+        <RegisterDeviceButton />
       </div>
 
       <Card className="p-0">

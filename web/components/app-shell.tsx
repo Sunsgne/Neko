@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Router,
@@ -14,8 +14,11 @@ import {
   Search,
   Settings,
   ChevronsLeft,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { logout } from "@/lib/api";
+import { clearSession, currentToken, getCookie, EMAIL_COOKIE, ROLE_COOKIE } from "@/lib/session";
 
 const nav = [
   { href: "/", label: "仪表盘", icon: LayoutDashboard },
@@ -29,7 +32,30 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  const [role, setRole] = React.useState("");
+
+  React.useEffect(() => {
+    setEmail(getCookie(EMAIL_COOKIE) ?? "");
+    setRole(getCookie(ROLE_COOKIE) ?? "");
+  }, [pathname]);
+
+  // The login route renders without the app chrome.
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
+  async function onLogout() {
+    const t = currentToken();
+    if (t) await logout(t);
+    clearSession();
+    router.replace("/login");
+    router.refresh();
+  }
+
+  const initials = email ? email.slice(0, 2).toUpperCase() : "··";
 
   return (
     <div className="flex min-h-screen">
@@ -88,14 +114,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span>搜索设备、租户、链路…</span>
             <kbd className="ml-auto rounded border border-border px-1.5 py-0.5 text-[10px] text-muted">⌘K</kbd>
           </div>
-          <button className="rounded-lg p-2 text-muted hover:bg-surface hover:text-foreground">
+          <Link href="/alerts" className="rounded-lg p-2 text-muted hover:bg-surface hover:text-foreground">
             <Bell className="h-4 w-4" />
-          </button>
+          </Link>
           <button className="rounded-lg p-2 text-muted hover:bg-surface hover:text-foreground">
             <Settings className="h-4 w-4" />
           </button>
-          <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
-            OP
+          <div className="flex items-center gap-2 border-l border-border pl-3">
+            <div className="hidden text-right sm:block">
+              <div className="text-xs font-medium leading-tight">{email || "未登录"}</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted">{role || ""}</div>
+            </div>
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
+              {initials}
+            </div>
+            <button
+              onClick={onLogout}
+              title="退出登录"
+              className="rounded-lg p-2 text-muted hover:bg-surface hover:text-danger"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </header>
 

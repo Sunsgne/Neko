@@ -1,5 +1,6 @@
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
 import { listLinks, type Link } from "@/lib/api";
+import { serverToken } from "@/lib/server-session";
 
 export const dynamic = "force-dynamic";
 
@@ -42,12 +43,14 @@ function statusTone(status: string): "success" | "warning" | "danger" | "neutral
 
 export default async function LinksPage() {
   let links: Link[] = [];
+  let live = false;
   try {
-    links = await listLinks();
+    links = await listLinks(serverToken());
+    live = true;
   } catch {
     links = [];
   }
-  if (links.length === 0) links = demo;
+  if (links.length === 0 && !live) links = demo;
 
   return (
     <div className="space-y-6">

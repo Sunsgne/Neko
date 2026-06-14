@@ -26,8 +26,9 @@ const (
 func authenticate(a auth.Authenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Health endpoints are always public.
-			if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+			// Health and login/logout endpoints are always public.
+			switch r.URL.Path {
+			case "/healthz", "/readyz", "/api/v1/auth/login", "/api/v1/auth/logout":
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -87,6 +88,13 @@ func tenantFrom(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+func principalFrom(ctx context.Context) (auth.Principal, bool) {
+	if v, ok := ctx.Value(ctxKeyPrincipal).(auth.Principal); ok {
+		return v, true
+	}
+	return auth.Principal{}, false
 }
 
 // logging records method, path, status and duration for each request.

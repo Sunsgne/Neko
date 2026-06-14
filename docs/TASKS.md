@@ -14,7 +14,7 @@
 
 ## Epic 1 — 多租户与 RBAC
 - [ ] T1.1 pgx 接入 + 仓储实现（替换内存仓储，保留接口）
-- [~] T1.2 Token 鉴权中间件（auth 包：Principal/operator-tenant 作用域、SHA-256 哈希存储、可选开关 NEKO_AUTH）；用户/角色 RBAC 细化待补
+- [x] T1.2 登录与鉴权全链路：users（口令哈希+账号）+ session（Bearer Token 会话+过期）+ /auth/login·me·logout + 前端登录页/路由保护/退出登录；用户角色 RBAC 细粒度权限待补
 - [ ] T1.3 PostgreSQL 行级安全 (RLS) 多租户隔离
 - [~] T1.4 审计日志模型与追加写记录器（audit 包，append-only）；写操作埋点与查询 API 待补
 

@@ -1,5 +1,6 @@
 import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
 import { listAlerts, type Alert } from "@/lib/api";
+import { serverToken } from "@/lib/server-session";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,14 @@ function fmt(iso: string): string {
 
 export default async function AlertsPage() {
   let alerts: Alert[] = [];
+  let live = false;
   try {
-    alerts = await listAlerts();
+    alerts = await listAlerts(serverToken());
+    live = true;
   } catch {
     alerts = [];
   }
-  if (alerts.length === 0) alerts = demo;
+  if (alerts.length === 0 && !live) alerts = demo;
 
   const firing = alerts.filter((a) => a.state === "firing");
 

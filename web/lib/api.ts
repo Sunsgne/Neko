@@ -74,43 +74,104 @@ export interface DNSServer {
   latency_ms: number;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  display_name: string;
+  tenant_id: string;
+  is_operator: boolean;
+}
+
 export interface Envelope<T> {
   data: T;
   meta?: { page: number; page_size: number; total: number };
 }
 
-async function getJSON<T>(path: string, tenantId?: string): Promise<Envelope<T>> {
-  const headers: Record<string, string> = {};
-  if (tenantId) headers["X-Tenant-Id"] = tenantId;
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function authHeaders(token?: string): Record<string, string> {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) h["Authorization"] = `Bearer ${token}`;
+  return h;
+}
+
+async function request<T>(
+  method: string,
+  path: string,
+  opts: { token?: string; body?: unknown } = {},
+): Promise<Envelope<T>> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers,
+    method,
+    headers: authHeaders(opts.token),
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`request failed: ${res.status}`);
-  return res.json();
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : {};
+  if (!res.ok) {
+    const err = json?.error ?? {};
+    throw new ApiError(res.status, err.code ?? "error", err.message ?? `request failed: ${res.status}`);
+  }
+  return json as Envelope<T>;
 }
 
-export async function listTenants(): Promise<Tenant[]> {
-  const env = await getJSON<Tenant[]>("/api/v1/tenants");
+export async function login(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
+  const env = await request<{ token: string; user: AuthUser }>("POST", "/api/v1/auth/login", {
+    body: { email, password },
+  });
+  return env.data;
+}
+
+export async function logout(token: string): Promise<void> {
+  try {
+    await request("POST", "/api/v1/auth/logout", { token });
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function listTenants(token?: string): Promise<Tenant[]> {
+  const env = await request<Tenant[]>("GET", "/api/v1/tenants", { token });
   return env.data ?? [];
 }
 
-export async function listDevices(tenantId?: string): Promise<Device[]> {
-  const env = await getJSON<Device[]>("/api/v1/devices", tenantId);
+export async function createTenant(name: string, token?: string): Promise<Tenant> {
+  const env = await request<Tenant>("POST", "/api/v1/tenants", { token, body: { name } });
+  return env.data;
+}
+
+export async function listDevices(token?: string): Promise<Device[]> {
+  const env = await request<Device[]>("GET", "/api/v1/devices", { token });
   return env.data ?? [];
 }
 
-export async function listLinks(tenantId?: string): Promise<Link[]> {
-  const env = await getJSON<Link[]>("/api/v1/links", tenantId);
+export async function registerDevice(name: string, mgmtAddress: string, token?: string): Promise<Device> {
+  const env = await request<Device>("POST", "/api/v1/devices", {
+    token,
+    body: { name, mgmt_address: mgmtAddress },
+  });
+  return env.data;
+}
+
+export async function listLinks(token?: string): Promise<Link[]> {
+  const env = await request<Link[]>("GET", "/api/v1/links", { token });
   return env.data ?? [];
 }
 
-export async function listAlerts(tenantId?: string): Promise<Alert[]> {
-  const env = await getJSON<Alert[]>("/api/v1/alerts", tenantId);
+export async function listAlerts(token?: string): Promise<Alert[]> {
+  const env = await request<Alert[]>("GET", "/api/v1/alerts", { token });
   return env.data ?? [];
 }
 
-export async function listDNSServers(tenantId?: string): Promise<DNSServer[]> {
-  const env = await getJSON<DNSServer[]>("/api/v1/dns/servers", tenantId);
+export async function listDNSServers(token?: string): Promise<DNSServer[]> {
+  const env = await request<DNSServer[]>("GET", "/api/v1/dns/servers", { token });
   return env.data ?? [];
 }

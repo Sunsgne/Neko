@@ -18,8 +18,10 @@ import (
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/observability"
 	"github.com/neko/sdwan/backend/internal/seed"
+	"github.com/neko/sdwan/backend/internal/session"
 	"github.com/neko/sdwan/backend/internal/store"
 	"github.com/neko/sdwan/backend/internal/tenant"
+	"github.com/neko/sdwan/backend/internal/users"
 )
 
 func main() {
@@ -52,16 +54,18 @@ func main() {
 	// once device credentials/connectivity land (Epic 2 follow-up).
 	inventorySvc := inventory.NewService(st.Devices(), nil, func() string { return idgen.New("dev") }, now)
 
+	// Authentication: enabled when seeding a demo or when NEKO_AUTH=on. Backed
+	// by a session store (bearer tokens) with user accounts.
 	var authn auth.Authenticator
-	if cfg.AuthEnabled {
-		ma := auth.NewMemoryAuthenticator()
-		if cfg.OperatorToken != "" {
-			ma.AddToken(cfg.OperatorToken, auth.Principal{IsOperator: true})
-			logger.Info("auth enabled with seeded operator token")
-		} else {
-			logger.Warn("auth enabled but NEKO_OPERATOR_TOKEN is empty; no tokens registered")
-		}
-		authn = ma
+	var userRepo users.Repository
+	var sessions *session.Store
+	if cfg.AuthEnabled || cfg.Seed {
+		ur := users.NewMemoryRepository()
+		sessions = session.NewStore(12 * time.Hour)
+		seed.Users(context.Background(), ur)
+		userRepo = ur
+		authn = sessions
+		logger.Info("authentication enabled (session tokens)", "demo_accounts", cfg.Seed)
 	}
 
 	srv := httpapi.New(httpapi.Deps{
@@ -69,6 +73,8 @@ func main() {
 		Tenants:   tenantSvc,
 		Inventory: inventorySvc,
 		Catalog:   cat,
+		Users:     userRepo,
+		Sessions:  sessions,
 		StoreKind: cfg.Store,
 		Auth:      authn,
 	})

@@ -15,7 +15,8 @@ var ErrUnauthorized = errors.New("unauthorized")
 
 // Principal is the authenticated identity for a request.
 type Principal struct {
-	TokenID    string
+	TokenID    string // user id (or token id)
+	Email      string
 	TenantID   string // empty for platform operators
 	IsOperator bool
 }
