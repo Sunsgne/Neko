@@ -18,6 +18,22 @@
 ## 技术栈
 Go 1.22+（后端/Worker） · Next.js 14 + TypeScript（Web） · PostgreSQL 16 · Redis 7 · NATS JetStream · VictoriaMetrics · OpenTelemetry
 
+## 界面预览
+
+> 以下为 `make demo`（内存仓储 + 演示数据）实际运行截图。
+
+| 仪表盘 | 设备纳管 |
+| --- | --- |
+| ![dashboard](docs/screenshots/dashboard.png) | ![devices](docs/screenshots/devices.png) |
+
+| 链路质量 | DNS 管理 |
+| --- | --- |
+| ![links](docs/screenshots/links.png) | ![dns](docs/screenshots/dns.png) |
+
+| 告警中心 | 租户管理 |
+| --- | --- |
+| ![alerts](docs/screenshots/alerts.png) | ![tenants](docs/screenshots/tenants.png) |
+
 ## 一键本地 Demo 🚀
 
 无需数据库或任何外部依赖（后端使用内存仓储 + 演示数据）：
