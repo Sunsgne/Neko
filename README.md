@@ -33,6 +33,10 @@ Go 1.22+（后端/Worker） · Next.js 14 + TypeScript（Web） · PostgreSQL 16
 | --- | --- |
 | ![devices](docs/screenshots/devices.png) | ![tenants](docs/screenshots/tenants.png) |
 
+| 站点编排 · 一键下发（链路选择 + 路由生成） |
+| --- |
+| ![orchestrate](docs/screenshots/orchestrate.png) |
+
 | 链路质量 | DNS 管理 |
 | --- | --- |
 | ![links](docs/screenshots/links.png) | ![dns](docs/screenshots/dns.png) |
