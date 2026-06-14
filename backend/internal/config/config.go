@@ -29,6 +29,8 @@ type Config struct {
 	// auth is enabled. Empty values fall back to demo defaults.
 	AdminEmail    string
 	AdminPassword string
+	// SecretKey encrypts device credentials at rest (AES-256-GCM).
+	SecretKey string
 }
 
 // Load reads configuration from the environment, applying sensible defaults
@@ -50,6 +52,7 @@ func Load() Config {
 		Seed:          strings.EqualFold(env("NEKO_SEED", "false"), "true"),
 		AdminEmail:    env("NEKO_ADMIN_EMAIL", ""),
 		AdminPassword: env("NEKO_ADMIN_PASSWORD", ""),
+		SecretKey:     env("NEKO_SECRET_KEY", ""),
 	}
 }
 

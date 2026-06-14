@@ -54,8 +54,22 @@ type DeviceRepository interface {
 	Update(ctx context.Context, d *Device) error
 }
 
+// Credential is an encrypted credential blob for a device.
+type Credential struct {
+	DeviceID string
+	Kind     string // api | ssh-password | ssh-key
+	Sealed   string // base64 AES-GCM ciphertext (never plaintext)
+}
+
+// CredentialRepository persists encrypted device credentials.
+type CredentialRepository interface {
+	Put(ctx context.Context, c Credential) error
+	Get(ctx context.Context, deviceID string) (*Credential, error)
+}
+
 // Store aggregates all repositories.
 type Store interface {
 	Tenants() TenantRepository
 	Devices() DeviceRepository
+	Credentials() CredentialRepository
 }

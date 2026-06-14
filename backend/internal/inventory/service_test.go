@@ -14,7 +14,7 @@ func newTestService() *Service {
 	n := 0
 	id := func() string { n++; return "dev_" + string(rune('a'+n)) }
 	now := func() time.Time { return time.Unix(0, 0).UTC() }
-	return NewService(st.Devices(), nil, id, now)
+	return NewService(Deps{Devices: st.Devices(), ID: id, Now: now})
 }
 
 func TestRegisterDevice(t *testing.T) {

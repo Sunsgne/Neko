@@ -18,6 +18,7 @@ type PostgresStore struct {
 	pool    *pgxpool.Pool
 	tenants *pgTenantRepo
 	devices *pgDeviceRepo
+	creds   *pgCredentialRepo
 }
 
 // OpenPostgres connects to PostgreSQL and verifies connectivity.
@@ -36,6 +37,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 		pool:    pool,
 		tenants: &pgTenantRepo{pool: pool},
 		devices: &pgDeviceRepo{pool: pool},
+		creds:   &pgCredentialRepo{pool: pool},
 	}, nil
 }
 
@@ -45,8 +47,33 @@ func (s *PostgresStore) Close() { s.pool.Close() }
 // Migrate applies pending schema migrations.
 func (s *PostgresStore) Migrate(ctx context.Context) error { return Migrate(ctx, s.pool) }
 
-func (s *PostgresStore) Tenants() TenantRepository { return s.tenants }
-func (s *PostgresStore) Devices() DeviceRepository { return s.devices }
+func (s *PostgresStore) Tenants() TenantRepository         { return s.tenants }
+func (s *PostgresStore) Devices() DeviceRepository         { return s.devices }
+func (s *PostgresStore) Credentials() CredentialRepository { return s.creds }
+
+type pgCredentialRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgCredentialRepo) Put(ctx context.Context, c Credential) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO device_credentials (device_id, kind, encrypted_blob)
+		 VALUES ($1,$2,$3)
+		 ON CONFLICT (device_id) DO UPDATE SET kind=$2, encrypted_blob=$3`,
+		c.DeviceID, c.Kind, []byte(c.Sealed))
+	return mapPgError(err)
+}
+
+func (r *pgCredentialRepo) Get(ctx context.Context, deviceID string) (*Credential, error) {
+	var c Credential
+	var blob []byte
+	err := r.pool.QueryRow(ctx,
+		`SELECT device_id, kind, encrypted_blob FROM device_credentials WHERE device_id=$1`, deviceID).
+		Scan(&c.DeviceID, &c.Kind, &blob)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	c.Sealed = string(blob)
+	return &c, nil
+}
 
 func mapPgError(err error) error {
 	if err == nil {
@@ -122,16 +149,20 @@ func (r *pgDeviceRepo) Create(ctx context.Context, d *Device) error {
 	if role == "" {
 		role = RoleCPE
 	}
+	status, err := marshalStatus(d.Status)
+	if err != nil {
+		return err
+	}
 	_, err = r.pool.Exec(ctx,
-		`INSERT INTO devices (id, tenant_id, name, mgmt_address, role, region, platform, model, serial, trust_state, capabilities, last_seen_at, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		`INSERT INTO devices (id, tenant_id, name, mgmt_address, role, region, platform, model, serial, trust_state, capabilities, status, enrolled, last_seen_at, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		d.ID, nullable(d.TenantID), d.Name, d.MgmtAddress, string(role), d.Region, string(d.Platform), d.Model, d.Serial,
-		string(d.TrustState), caps, d.LastSeenAt, d.CreatedAt, d.UpdatedAt)
+		string(d.TrustState), caps, status, d.Enrolled, d.LastSeenAt, d.CreatedAt, d.UpdatedAt)
 	return mapPgError(err)
 }
 
 func (r *pgDeviceRepo) Get(ctx context.Context, tenantID, id string) (*Device, error) {
-	q := `SELECT id, tenant_id, name, mgmt_address, role, region, platform, model, serial, trust_state, capabilities, last_seen_at, created_at, updated_at
+	q := `SELECT id, tenant_id, name, mgmt_address, role, region, platform, model, serial, trust_state, capabilities, status, enrolled, last_seen_at, created_at, updated_at
 	      FROM devices WHERE id=$1`
 	args := []any{id}
 	if tenantID != "" {
@@ -144,7 +175,7 @@ func (r *pgDeviceRepo) Get(ctx context.Context, tenantID, id string) (*Device, e
 func (r *pgDeviceRepo) List(ctx context.Context, tenantID string, page Page) ([]*Device, int, error) {
 	page = page.Normalize()
 	countQ := `SELECT count(*) FROM devices`
-	listQ := `SELECT id, tenant_id, name, mgmt_address, role, region, platform, model, serial, trust_state, capabilities, last_seen_at, created_at, updated_at FROM devices`
+	listQ := `SELECT id, tenant_id, name, mgmt_address, role, region, platform, model, serial, trust_state, capabilities, status, enrolled, last_seen_at, created_at, updated_at FROM devices`
 	var args []any
 	if tenantID != "" {
 		countQ += ` WHERE tenant_id=$1`
@@ -182,11 +213,15 @@ func (r *pgDeviceRepo) Update(ctx context.Context, d *Device) error {
 	if role == "" {
 		role = RoleCPE
 	}
+	status, err := marshalStatus(d.Status)
+	if err != nil {
+		return err
+	}
 	ct, err := r.pool.Exec(ctx,
 		`UPDATE devices SET name=$2, mgmt_address=$3, role=$4, region=$5, platform=$6, model=$7, serial=$8,
-		 trust_state=$9, capabilities=$10, last_seen_at=$11, updated_at=$12 WHERE id=$1`,
+		 trust_state=$9, capabilities=$10, status=$11, enrolled=$12, last_seen_at=$13, updated_at=$14 WHERE id=$1`,
 		d.ID, d.Name, d.MgmtAddress, string(role), d.Region, string(d.Platform), d.Model, d.Serial,
-		string(d.TrustState), caps, d.LastSeenAt, d.UpdatedAt)
+		string(d.TrustState), caps, status, d.Enrolled, d.LastSeenAt, d.UpdatedAt)
 	if err != nil {
 		return mapPgError(err)
 	}
@@ -204,9 +239,9 @@ func scanDevice(row rowScanner) (*Device, error) {
 	var d Device
 	var platform, trust, role string
 	var tenantID *string
-	var caps []byte
+	var caps, status []byte
 	if err := row.Scan(&d.ID, &tenantID, &d.Name, &d.MgmtAddress, &role, &d.Region, &platform, &d.Model,
-		&d.Serial, &trust, &caps, &d.LastSeenAt, &d.CreatedAt, &d.UpdatedAt); err != nil {
+		&d.Serial, &trust, &caps, &status, &d.Enrolled, &d.LastSeenAt, &d.CreatedAt, &d.UpdatedAt); err != nil {
 		return nil, mapPgError(err)
 	}
 	if tenantID != nil {
@@ -221,7 +256,20 @@ func scanDevice(row rowScanner) (*Device, error) {
 			d.Capabilities = &cm
 		}
 	}
+	if len(status) > 0 {
+		var st DeviceStatus
+		if err := json.Unmarshal(status, &st); err == nil {
+			d.Status = &st
+		}
+	}
 	return &d, nil
+}
+
+func marshalStatus(s *DeviceStatus) ([]byte, error) {
+	if s == nil {
+		return nil, nil
+	}
+	return json.Marshal(s)
 }
 
 // nullable converts an empty string to a SQL NULL so platform-owned devices

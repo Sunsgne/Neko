@@ -20,6 +20,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/metrics"
 	"github.com/neko/sdwan/backend/internal/observability"
 	"github.com/neko/sdwan/backend/internal/routeros"
+	"github.com/neko/sdwan/backend/internal/secret"
 	"github.com/neko/sdwan/backend/internal/seed"
 	"github.com/neko/sdwan/backend/internal/session"
 	"github.com/neko/sdwan/backend/internal/store"
@@ -68,10 +69,23 @@ func main() {
 
 	now := func() time.Time { return time.Now().UTC() }
 	tenantSvc := tenant.NewService(st.Tenants(), func() string { return idgen.New("ten") }, now)
-	// RouterOS v7 REST collector drives capability detection against real
-	// devices (credentials carried per-target; tolerant of self-signed TLS).
-	collector := routeros.NewRestCollector()
-	inventorySvc := inventory.NewService(st.Devices(), collector, func() string { return idgen.New("dev") }, now)
+	// Credential sealer for at-rest encryption of device credentials.
+	sealer, err := secret.New(cfg.SecretKey)
+	if err != nil {
+		logger.Error("init sealer", "err", err)
+		os.Exit(1)
+	}
+	// RouterOS v7 REST collector + status probe drive enrollment and polling
+	// against real devices (credentials stored encrypted, self-signed TLS ok).
+	inventorySvc := inventory.NewService(inventory.Deps{
+		Devices:     st.Devices(),
+		Credentials: st.Credentials(),
+		Collector:   routeros.NewRestCollector(),
+		Probe:       routeros.ClientProbe{},
+		Sealer:      sealer,
+		ID:          func() string { return idgen.New("dev") },
+		Now:         now,
+	})
 
 	// Authentication: enabled when seeding a demo or when NEKO_AUTH=on. Backed
 	// by a session store (bearer tokens) with user accounts.

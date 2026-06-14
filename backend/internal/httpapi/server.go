@@ -92,6 +92,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleGetDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/detect", s.handleDetectDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/trust", s.handleSetDeviceTrust)
+	// Device hosting (托管): enroll stores encrypted creds + connects; poll
+	// refreshes live status using those stored credentials.
+	mux.HandleFunc("POST /api/v1/devices/{id}/enroll", s.handleEnroll)
+	mux.HandleFunc("POST /api/v1/devices/{id}/poll", s.handlePoll)
 	// Full-function configuration over REST (no device login required).
 	mux.HandleFunc("GET /api/v1/devices/{id}/config", s.handleSnapshotConfig)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/config", s.handlePushConfig)

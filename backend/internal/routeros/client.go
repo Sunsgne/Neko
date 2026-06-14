@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/neko/sdwan/backend/internal/store"
 )
 
 // Client is a full RouterOS v7 REST client supporting CRUD on any config path,
@@ -112,6 +114,44 @@ func (c *Client) Update(ctx context.Context, path, id string, attrs map[string]s
 func (c *Client) Delete(ctx context.Context, path, id string) error {
 	_, _, err := c.do(ctx, http.MethodDelete, path+"/"+id, nil)
 	return err
+}
+
+// Status reads live operational metrics (/system/resource + /interface) and
+// returns them as a store.DeviceStatus. Online is set true on success.
+func (c *Client) Status(ctx context.Context) (store.DeviceStatus, error) {
+	st := store.DeviceStatus{}
+	res, err := c.List(ctx, "/system/resource")
+	if err != nil || len(res) == 0 {
+		if err == nil {
+			err = ErrUnreachable
+		}
+		return st, err
+	}
+	r := res[0]
+	st.Online = true
+	st.Version = str(r["version"])
+	st.Uptime = str(r["uptime"])
+	st.CPULoadPercent = int(atoi64(r["cpu-load"]))
+	st.FreeMemoryBytes = atoi64(r["free-memory"])
+	st.TotalMemoryBytes = atoi64(r["total-memory"])
+
+	if ifaces, err := c.List(ctx, "/interface"); err == nil {
+		st.InterfacesTotal = len(ifaces)
+		for _, i := range ifaces {
+			if boolish(i["running"]) {
+				st.InterfacesUp++
+			}
+		}
+	}
+	// Optional board temperature via /system/health (best-effort).
+	if health, err := c.List(ctx, "/system/health"); err == nil {
+		for _, h := range health {
+			if str(h["name"]) == "temperature" {
+				st.BoardTempC = int(atoi64(h["value"]))
+			}
+		}
+	}
+	return st, nil
 }
 
 // ManagedSections is the catalog of RouterOS config paths the platform fully

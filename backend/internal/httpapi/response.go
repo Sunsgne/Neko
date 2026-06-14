@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/neko/sdwan/backend/internal/inventory"
+	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/store"
 	"github.com/neko/sdwan/backend/internal/tenant"
 )
@@ -60,6 +61,10 @@ func respondServiceError(w http.ResponseWriter, err error) {
 		respondError(w, http.StatusBadRequest, "invalid_input", err.Error())
 	case errors.Is(err, inventory.ErrTransitionNotAllowed):
 		respondError(w, http.StatusConflict, "transition_not_allowed", err.Error())
+	case errors.Is(err, inventory.ErrNotEnrolled):
+		respondError(w, http.StatusConflict, "not_enrolled", err.Error())
+	case errors.Is(err, routeros.ErrUnreachable):
+		respondError(w, http.StatusBadGateway, "device_unreachable", "无法连接设备（地址/凭据/网络）")
 	default:
 		respondError(w, http.StatusInternalServerError, "internal", "internal server error")
 	}

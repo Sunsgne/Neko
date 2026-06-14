@@ -80,6 +80,21 @@ type CapabilityMatrix struct {
 	SupportsContainer bool                  `json:"supports_container"`
 }
 
+// DeviceStatus is the live operational state captured by the poller.
+type DeviceStatus struct {
+	Online           bool       `json:"online"`
+	Version          string     `json:"version,omitempty"`
+	Uptime           string     `json:"uptime,omitempty"`
+	CPULoadPercent   int        `json:"cpu_load_percent"`
+	FreeMemoryBytes  int64      `json:"free_memory_bytes"`
+	TotalMemoryBytes int64      `json:"total_memory_bytes"`
+	BoardTempC       int        `json:"board_temp_c,omitempty"`
+	InterfacesUp     int        `json:"interfaces_up"`
+	InterfacesTotal  int        `json:"interfaces_total"`
+	LastPolledAt     *time.Time `json:"last_polled_at,omitempty"`
+	LastError        string     `json:"last_error,omitempty"`
+}
+
 // Device is a managed RouterOS device.
 type Device struct {
 	ID           string            `json:"id"`
@@ -93,6 +108,8 @@ type Device struct {
 	Serial       string            `json:"serial"`
 	TrustState   TrustState        `json:"trust_state"`
 	Capabilities *CapabilityMatrix `json:"capabilities,omitempty"`
+	Status       *DeviceStatus     `json:"status,omitempty"`
+	Enrolled     bool              `json:"enrolled"` // credentials stored => platform-managed
 	LastSeenAt   *time.Time        `json:"last_seen_at,omitempty"`
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`

@@ -11,6 +11,7 @@ import (
 type MemoryStore struct {
 	tenants *memTenantRepo
 	devices *memDeviceRepo
+	creds   *memCredentialRepo
 }
 
 // NewMemory builds a ready-to-use in-memory store.
@@ -18,11 +19,36 @@ func NewMemory() *MemoryStore {
 	return &MemoryStore{
 		tenants: &memTenantRepo{items: map[string]*Tenant{}},
 		devices: &memDeviceRepo{items: map[string]*Device{}},
+		creds:   &memCredentialRepo{items: map[string]Credential{}},
 	}
 }
 
-func (m *MemoryStore) Tenants() TenantRepository { return m.tenants }
-func (m *MemoryStore) Devices() DeviceRepository { return m.devices }
+func (m *MemoryStore) Tenants() TenantRepository         { return m.tenants }
+func (m *MemoryStore) Devices() DeviceRepository         { return m.devices }
+func (m *MemoryStore) Credentials() CredentialRepository { return m.creds }
+
+type memCredentialRepo struct {
+	mu    sync.RWMutex
+	items map[string]Credential
+}
+
+func (r *memCredentialRepo) Put(_ context.Context, c Credential) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items[c.DeviceID] = c
+	return nil
+}
+
+func (r *memCredentialRepo) Get(_ context.Context, deviceID string) (*Credential, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	c, ok := r.items[deviceID]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	cp := c
+	return &cp, nil
+}
 
 type memTenantRepo struct {
 	mu    sync.RWMutex

@@ -3,6 +3,7 @@ package inventory
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/neko/sdwan/backend/internal/routeros"
+	"github.com/neko/sdwan/backend/internal/secret"
 	"github.com/neko/sdwan/backend/internal/store"
 )
 
@@ -19,24 +21,146 @@ var ErrInvalidInput = errors.New("invalid input")
 // ErrTransitionNotAllowed indicates an illegal trust-state change.
 var ErrTransitionNotAllowed = errors.New("trust transition not allowed")
 
+// ErrNotEnrolled indicates the device has no stored credentials.
+var ErrNotEnrolled = errors.New("device not enrolled (no stored credentials)")
+
 // IDFunc generates unique identifiers.
 type IDFunc func() string
 
 // NowFunc returns the current time.
 type NowFunc func() time.Time
 
+// StatusProbe reads live device status over a management protocol.
+type StatusProbe interface {
+	Status(ctx context.Context, t routeros.Target) (store.DeviceStatus, error)
+}
+
 // Service contains device inventory business logic.
 type Service struct {
 	repo      store.DeviceRepository
+	creds     store.CredentialRepository
 	collector routeros.Collector
+	probe     StatusProbe
+	sealer    *secret.Sealer
 	id        IDFunc
 	now       NowFunc
 }
 
-// NewService builds an inventory service. The collector may be nil; in that
-// case capability detection is unavailable until one is configured.
-func NewService(repo store.DeviceRepository, collector routeros.Collector, id IDFunc, now NowFunc) *Service {
-	return &Service{repo: repo, collector: collector, id: id, now: now}
+// Deps are the dependencies for the inventory service.
+type Deps struct {
+	Devices     store.DeviceRepository
+	Credentials store.CredentialRepository
+	Collector   routeros.Collector
+	Probe       StatusProbe
+	Sealer      *secret.Sealer
+	ID          IDFunc
+	Now         NowFunc
+}
+
+// NewService builds an inventory service.
+func NewService(d Deps) *Service {
+	return &Service{
+		repo:      d.Devices,
+		creds:     d.Credentials,
+		collector: d.Collector,
+		probe:     d.Probe,
+		sealer:    d.Sealer,
+		id:        d.ID,
+		now:       d.Now,
+	}
+}
+
+type storedCreds struct {
+	Username string `json:"u"`
+	Password string `json:"p"`
+}
+
+// Enroll stores device credentials (encrypted), connects to the device to pull
+// its facts/capabilities, and transitions it to managed. This is real device
+// onboarding (托管): the platform holds the credentials and operates the device
+// thereafter without anyone logging in.
+func (s *Service) Enroll(ctx context.Context, tenantID, id, username, password string) (*store.Device, error) {
+	if s.collector == nil || s.creds == nil || s.sealer == nil {
+		return nil, fmt.Errorf("%w: enrollment not configured", ErrInvalidInput)
+	}
+	d, err := s.repo.Get(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	target := routeros.Target{Address: d.MgmtAddress, Username: username, Secret: password}
+	facts, err := s.collector.Collect(ctx, target)
+	if err != nil {
+		return nil, err // unreachable / bad creds
+	}
+
+	blob, err := json.Marshal(storedCreds{Username: username, Password: password})
+	if err != nil {
+		return nil, err
+	}
+	sealed, err := s.sealer.Seal(blob)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.creds.Put(ctx, store.Credential{DeviceID: d.ID, Kind: "api", Sealed: sealed}); err != nil {
+		return nil, err
+	}
+
+	det := routeros.Detect(*facts)
+	caps := det.Capabilities
+	d.Platform, d.Model = det.Platform, det.Model
+	if det.Serial != "" {
+		d.Serial = det.Serial
+	}
+	d.Capabilities = &caps
+	d.Enrolled = true
+	d.TrustState = store.TrustManaged
+	now := s.now()
+	d.LastSeenAt, d.UpdatedAt = &now, now
+	if err := s.repo.Update(ctx, d); err != nil {
+		return nil, err
+	}
+	// Best-effort immediate status poll.
+	_, _ = s.Poll(ctx, tenantID, id)
+	return s.repo.Get(ctx, tenantID, id)
+}
+
+// Poll connects to an enrolled device using stored credentials and refreshes
+// its live status (online/version/cpu/mem/interfaces).
+func (s *Service) Poll(ctx context.Context, tenantID, id string) (*store.Device, error) {
+	if s.probe == nil || s.creds == nil || s.sealer == nil {
+		return nil, fmt.Errorf("%w: polling not configured", ErrInvalidInput)
+	}
+	d, err := s.repo.Get(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	cred, err := s.creds.Get(ctx, d.ID)
+	if err != nil {
+		return nil, ErrNotEnrolled
+	}
+	plain, err := s.sealer.Open(cred.Sealed)
+	if err != nil {
+		return nil, err
+	}
+	var sc storedCreds
+	if err := json.Unmarshal(plain, &sc); err != nil {
+		return nil, err
+	}
+	now := s.now()
+	status, perr := s.probe.Status(ctx, routeros.Target{Address: d.MgmtAddress, Username: sc.Username, Secret: sc.Password})
+	status.LastPolledAt = &now
+	if perr != nil {
+		status.Online = false
+		status.LastError = perr.Error()
+	} else {
+		d.LastSeenAt = &now
+	}
+	d.Status = &status
+	d.UpdatedAt = now
+	if err := s.repo.Update(ctx, d); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 // RegisterInput is the payload for registering a device for onboarding.

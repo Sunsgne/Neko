@@ -5,7 +5,17 @@ import (
 	"fmt"
 
 	"github.com/neko/sdwan/backend/internal/configengine"
+	"github.com/neko/sdwan/backend/internal/store"
 )
+
+// ClientProbe implements inventory.StatusProbe: it builds a REST client per
+// target and reads live device status.
+type ClientProbe struct{}
+
+// Status connects to the target and returns its live status.
+func (ClientProbe) Status(ctx context.Context, t Target) (store.DeviceStatus, error) {
+	return NewClient(t).Status(ctx)
+}
 
 // Applier implements configengine.Applier against a RouterOS device over REST,
 // so the platform can push full configuration without logging in.

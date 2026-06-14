@@ -20,7 +20,7 @@ func TestDetectEnrichesDevice(t *testing.T) {
 		Routerboard: routeros.RouterboardInfo{Routerboard: true, Model: "RB5009UG+S+IN", SerialNumber: "SN1"},
 		Interfaces:  []routeros.Interface{{Name: "ether1", Type: "ether"}},
 	}
-	svc := NewService(st.Devices(), routeros.StaticCollector{Facts: facts}, id, now)
+	svc := NewService(Deps{Devices: st.Devices(), Collector: routeros.StaticCollector{Facts: facts}, ID: id, Now: now})
 
 	d, err := svc.Register(context.Background(), "ten_1", RegisterInput{Name: "edge", MgmtAddress: "10.0.0.1"})
 	if err != nil {
@@ -55,7 +55,7 @@ func TestSetTrustStateEnforcesMachine(t *testing.T) {
 	st := store.NewMemory()
 	id := func() string { return "dev_x" }
 	now := func() time.Time { return time.Unix(0, 0).UTC() }
-	svc := NewService(st.Devices(), nil, id, now)
+	svc := NewService(Deps{Devices: st.Devices(), ID: id, Now: now})
 
 	d, _ := svc.Register(context.Background(), "ten_1", RegisterInput{Name: "edge", MgmtAddress: "10.0.0.1"})
 
