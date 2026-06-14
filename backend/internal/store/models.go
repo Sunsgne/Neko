@@ -80,6 +80,16 @@ type CapabilityMatrix struct {
 	SupportsContainer bool                  `json:"supports_container"`
 }
 
+// SessionRecord is a persisted login session (survives API restarts).
+type SessionRecord struct {
+	Token      string
+	UserID     string
+	Email      string
+	TenantID   string
+	IsOperator bool
+	ExpiresAt  time.Time
+}
+
 // ConfigSnapshot is a captured device configuration (running state) used for
 // backup history and drift detection. State is the JSON of a
 // configengine.State (store stays decoupled from configengine).

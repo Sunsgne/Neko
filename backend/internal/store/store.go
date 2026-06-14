@@ -89,6 +89,13 @@ type ConfigSnapshotRepository interface {
 	Get(ctx context.Context, id string) (*ConfigSnapshot, error)
 }
 
+// SessionRepository persists login sessions so they survive API restarts.
+type SessionRepository interface {
+	Save(ctx context.Context, s SessionRecord) error
+	Get(ctx context.Context, token string) (*SessionRecord, error)
+	Delete(ctx context.Context, token string) error
+}
+
 // Store aggregates all repositories.
 type Store interface {
 	Tenants() TenantRepository
@@ -96,4 +103,5 @@ type Store interface {
 	Credentials() CredentialRepository
 	Alerts() AlertRepository
 	Snapshots() ConfigSnapshotRepository
+	Sessions() SessionRepository
 }

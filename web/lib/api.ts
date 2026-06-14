@@ -172,6 +172,15 @@ async function request<T>(
   const json = text ? JSON.parse(text) : {};
   if (!res.ok) {
     const err = json?.error ?? {};
+    // Stale/expired token: clear the client session and bounce to login so the
+    // user re-authenticates instead of seeing "missing or invalid token".
+    if (res.status === 401 && typeof window !== "undefined") {
+      for (const c of ["neko_token", "neko_email", "neko_role"]) {
+        document.cookie = `${c}=; path=/; max-age=0`;
+      }
+      const next = encodeURIComponent(window.location.pathname);
+      window.location.href = `/login?next=${next}`;
+    }
     throw new ApiError(res.status, err.code ?? "error", err.message ?? `request failed: ${res.status}`);
   }
   return json as Envelope<T>;

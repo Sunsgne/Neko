@@ -22,6 +22,7 @@ type PostgresStore struct {
 	creds   *pgCredentialRepo
 	alerts  *pgAlertRepo
 	snaps   *pgSnapshotRepo
+	sess    *pgSessionRepo
 }
 
 // OpenPostgres connects to PostgreSQL and verifies connectivity.
@@ -43,6 +44,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 		creds:   &pgCredentialRepo{pool: pool},
 		alerts:  &pgAlertRepo{pool: pool},
 		snaps:   &pgSnapshotRepo{pool: pool},
+		sess:    &pgSessionRepo{pool: pool},
 	}, nil
 }
 
@@ -57,6 +59,34 @@ func (s *PostgresStore) Devices() DeviceRepository           { return s.devices 
 func (s *PostgresStore) Credentials() CredentialRepository   { return s.creds }
 func (s *PostgresStore) Alerts() AlertRepository             { return s.alerts }
 func (s *PostgresStore) Snapshots() ConfigSnapshotRepository { return s.snaps }
+func (s *PostgresStore) Sessions() SessionRepository         { return s.sess }
+
+type pgSessionRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgSessionRepo) Save(ctx context.Context, s SessionRecord) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO sessions (token, user_id, email, tenant_id, is_operator, expires_at)
+		 VALUES ($1,$2,$3,$4,$5,$6)
+		 ON CONFLICT (token) DO UPDATE SET expires_at=$6`,
+		s.Token, s.UserID, s.Email, nullable(s.TenantID), s.IsOperator, s.ExpiresAt)
+	return mapPgError(err)
+}
+
+func (r *pgSessionRepo) Get(ctx context.Context, token string) (*SessionRecord, error) {
+	var s SessionRecord
+	err := r.pool.QueryRow(ctx,
+		`SELECT token, user_id, email, coalesce(tenant_id,''), is_operator, expires_at FROM sessions WHERE token=$1`, token).
+		Scan(&s.Token, &s.UserID, &s.Email, &s.TenantID, &s.IsOperator, &s.ExpiresAt)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	return &s, nil
+}
+
+func (r *pgSessionRepo) Delete(ctx context.Context, token string) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM sessions WHERE token=$1`, token)
+	return mapPgError(err)
+}
 
 type pgSnapshotRepo struct{ pool *pgxpool.Pool }
 

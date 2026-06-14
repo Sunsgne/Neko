@@ -96,7 +96,7 @@ func main() {
 	var sessions *session.Store
 	if cfg.AuthEnabled || cfg.Seed {
 		ur := users.NewMemoryRepository()
-		sessions = session.NewStore(12 * time.Hour)
+		sessions = session.NewStore(st.Sessions(), 12*time.Hour)
 		seed.Users(context.Background(), ur, cfg.AdminEmail, cfg.AdminPassword)
 		userRepo = ur
 		authn = sessions

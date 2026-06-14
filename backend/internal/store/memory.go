@@ -16,6 +16,7 @@ type MemoryStore struct {
 	creds   *memCredentialRepo
 	alerts  *memAlertRepo
 	snaps   *memSnapshotRepo
+	sess    *memSessionRepo
 }
 
 // NewMemory builds a ready-to-use in-memory store.
@@ -26,6 +27,7 @@ func NewMemory() *MemoryStore {
 		creds:   &memCredentialRepo{items: map[string]Credential{}},
 		alerts:  &memAlertRepo{items: map[string]*Alert{}},
 		snaps:   &memSnapshotRepo{items: map[string]*ConfigSnapshot{}},
+		sess:    &memSessionRepo{items: map[string]SessionRecord{}},
 	}
 }
 
@@ -34,6 +36,37 @@ func (m *MemoryStore) Devices() DeviceRepository           { return m.devices }
 func (m *MemoryStore) Credentials() CredentialRepository   { return m.creds }
 func (m *MemoryStore) Alerts() AlertRepository             { return m.alerts }
 func (m *MemoryStore) Snapshots() ConfigSnapshotRepository { return m.snaps }
+func (m *MemoryStore) Sessions() SessionRepository         { return m.sess }
+
+type memSessionRepo struct {
+	mu    sync.RWMutex
+	items map[string]SessionRecord
+}
+
+func (r *memSessionRepo) Save(_ context.Context, s SessionRecord) error {
+	r.mu.Lock()
+	r.items[s.Token] = s
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *memSessionRepo) Get(_ context.Context, token string) (*SessionRecord, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.items[token]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	cp := s
+	return &cp, nil
+}
+
+func (r *memSessionRepo) Delete(_ context.Context, token string) error {
+	r.mu.Lock()
+	delete(r.items, token)
+	r.mu.Unlock()
+	return nil
+}
 
 type memSnapshotRepo struct {
 	mu    sync.RWMutex
