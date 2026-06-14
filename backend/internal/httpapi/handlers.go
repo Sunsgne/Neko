@@ -38,6 +38,7 @@ func (s *Server) handleCreateTenant(w http.ResponseWriter, r *http.Request) {
 		respondServiceError(w, err)
 		return
 	}
+	s.record(r.Context(), "create", "tenant", t.ID, map[string]string{"name": t.Name, "slug": t.Slug})
 	respondData(w, http.StatusCreated, t)
 }
 
@@ -71,6 +72,7 @@ func (s *Server) handleCreateDevice(w http.ResponseWriter, r *http.Request) {
 		respondServiceError(w, err)
 		return
 	}
+	s.record(r.Context(), "create", "device", d.ID, map[string]string{"name": d.Name, "mgmt_address": d.MgmtAddress})
 	respondData(w, http.StatusCreated, d)
 }
 
@@ -105,6 +107,7 @@ func (s *Server) handleSetDeviceTrust(w http.ResponseWriter, r *http.Request) {
 		respondServiceError(w, err)
 		return
 	}
+	s.record(r.Context(), "trust_change", "device", d.ID, map[string]string{"trust_state": string(d.TrustState)})
 	respondData(w, http.StatusOK, d)
 }
 

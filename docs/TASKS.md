@@ -13,10 +13,10 @@
 - [x] T0.6 Next.js 控制台骨架 + 现代化 UI shell（仪表盘 / 设备 / 租户）
 
 ## Epic 1 — 多租户与 RBAC
-- [ ] T1.1 pgx 接入 + 仓储实现（替换内存仓储，保留接口）
-- [x] T1.2 登录与鉴权全链路：users（口令哈希+账号）+ session（Bearer Token 会话+过期）+ /auth/login·me·logout + 前端登录页/路由保护/退出登录；用户角色 RBAC 细粒度权限待补
-- [ ] T1.3 PostgreSQL 行级安全 (RLS) 多租户隔离
-- [~] T1.4 审计日志模型与追加写记录器（audit 包，append-only）；写操作埋点与查询 API 待补
+- [x] T1.1 pgx 接入 + PostgresStore（tenants/devices 仓储）+ 嵌入式迁移执行器（NEKO_STORE=postgres）
+- [x] T1.2 登录与鉴权全链路：users + session + /auth/login·me·logout + 前端登录页/路由保护/退出登录
+- [x] T1.3 PostgreSQL 行级安全 (RLS) 多租户隔离（0002_rls.sql：tenant_isolation 策略 + current_tenant() GUC）
+- [x] T1.4 审计日志：append-only 记录器 + 写操作埋点（create/trust_change）+ /api/v1/audit 查询 API
 
 ## Epic 2 — 设备纳管与能力矩阵
 - [~] T2.1 RouterOS API/SSH 客户端封装（已定义 Collector 接口 + StaticCollector；REST 实现待补）

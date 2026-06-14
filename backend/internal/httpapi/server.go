@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/neko/sdwan/backend/internal/audit"
 	"github.com/neko/sdwan/backend/internal/auth"
 	"github.com/neko/sdwan/backend/internal/catalog"
 	"github.com/neko/sdwan/backend/internal/inventory"
@@ -21,6 +22,8 @@ type Server struct {
 	catalog   *catalog.Catalog
 	users     users.Repository
 	sessions  *session.Store
+	audit     audit.Recorder
+	idgen     func(string) string
 	storeKind string
 	auth      auth.Authenticator // nil = auth disabled
 }
@@ -33,6 +36,8 @@ type Deps struct {
 	Catalog   *catalog.Catalog
 	Users     users.Repository
 	Sessions  *session.Store
+	Audit     audit.Recorder
+	IDGen     func(string) string
 	StoreKind string
 	Auth      auth.Authenticator
 }
@@ -46,6 +51,8 @@ func New(d Deps) *Server {
 		catalog:   d.Catalog,
 		users:     d.Users,
 		sessions:  d.Sessions,
+		audit:     d.Audit,
+		idgen:     d.IDGen,
 		storeKind: d.StoreKind,
 		auth:      d.Auth,
 	}
@@ -76,6 +83,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/devices/{id}", s.handleGetDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/detect", s.handleDetectDevice)
 	mux.HandleFunc("POST /api/v1/devices/{id}/trust", s.handleSetDeviceTrust)
+
+	// Audit log (operator-scoped query).
+	mux.HandleFunc("GET /api/v1/audit", s.handleListAudit)
 
 	// Monitoring read models.
 	mux.HandleFunc("GET /api/v1/links", s.handleListLinks)

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/neko/sdwan/backend/internal/audit"
 	"github.com/neko/sdwan/backend/internal/auth"
 	"github.com/neko/sdwan/backend/internal/catalog"
 	"github.com/neko/sdwan/backend/internal/config"
@@ -90,6 +91,8 @@ func main() {
 		Catalog:   cat,
 		Users:     userRepo,
 		Sessions:  sessions,
+		Audit:     audit.NewMemoryRecorder(),
+		IDGen:     idgen.New,
 		StoreKind: cfg.Store,
 		Auth:      authn,
 	})
