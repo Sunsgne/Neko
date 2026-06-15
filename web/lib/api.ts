@@ -374,6 +374,74 @@ export async function deployFabric(
   return env.data;
 }
 
+export type MeshTopology = "hub_spoke" | "transit" | "full_mesh";
+
+export interface MeshSiteInput {
+  device_id: string;
+  pop_device_id: string;
+  prefixes: string[];
+  cpe_overlay?: string;
+}
+
+export interface MeshLink {
+  kind: "cpe_pop" | "pop_pop";
+  from_device_id: string;
+  to_device_id: string;
+  from_iface?: string;
+  to_iface?: string;
+  from_overlay?: string;
+  to_overlay?: string;
+  to_gateway?: string;
+}
+
+export interface MeshNodePlan {
+  device_id: string;
+  device_name: string;
+  role: string;
+  desired: ConfigState;
+  plan: ConfigPlan;
+}
+
+export interface MeshPlan {
+  topology: MeshTopology;
+  local_as: number;
+  links: MeshLink[];
+  nodes: MeshNodePlan[];
+  summary: string;
+}
+
+export interface MeshDeployResult {
+  dry_run?: boolean;
+  mesh?: MeshPlan;
+  deploy?: {
+    results: Array<{
+      device_id: string;
+      role: string;
+      result: { status: string; reason?: string };
+      plan: ConfigPlan;
+    }>;
+    failed: number;
+    error?: string;
+  };
+  error?: string;
+}
+
+export async function deployMesh(
+  body: {
+    topology: MeshTopology;
+    local_as?: number;
+    sites: MeshSiteInput[];
+    backbone_path?: string[];
+    rr_device_id?: string;
+    dry_run?: boolean;
+    confirm_timeout_sec?: number;
+  },
+  token?: string,
+): Promise<MeshDeployResult> {
+  const env = await request<MeshDeployResult>("POST", "/api/v1/mesh/deploy", { token, body });
+  return env.data;
+}
+
 export async function proposeAccel(
   body: {
     cpe_device_id: string;

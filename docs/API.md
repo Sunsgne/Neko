@@ -52,6 +52,7 @@
 | POST | `/api/v1/accel/preview` | 生成加速模式对应的 RouterOS 配置预览 |
 | POST | `/api/v1/accel/propose` | CPE→POP 加速：自动生成 WG 密钥/overlay 地址/隧道参数 + CPE/POP 双侧配置预览 |
 | POST | `/api/v1/fabric/deploy` | 生产级双向下发：POP 先、CPE 后，WireGuard 隧道 + 加速/组网路由，使用托管凭据。`dry_run` 预览 |
+| POST | `/api/v1/mesh/deploy` | 多站点组网：`topology`=`hub_spoke`\|`transit`\|`full_mesh`，`sites[]`（CPE+POP+prefixes），`backbone_path`（transit/full_mesh），BGP AS + 骨干间 WG/iBGP |
 | GET | `/api/v1/links` | 监控链路列表（设备实测的延迟/抖动/丢包/评分） |
 | POST | `/api/v1/links` | 新增监控链路 `{device_id, name, kind, isp, role, target}` |
 | DELETE | `/api/v1/links/{id}` | 删除监控链路 |

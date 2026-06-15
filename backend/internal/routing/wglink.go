@@ -169,17 +169,29 @@ func BuildFabricPlan(cpe, pop *store.Device, mode accel.Mode, localWAN string, c
 }
 
 func meshOverlayRoutes(iface string, cidrs []string) configengine.State {
+	return meshReachabilityRoutes(cidrs, iface, "")
+}
+
+// meshReachabilityRoutes installs static routes via interface name and/or IP gateway.
+func meshReachabilityRoutes(cidrs []string, iface, gateway string) configengine.State {
 	var sts []configengine.Statement
 	for _, c := range cidrs {
-		sts = append(sts, configengine.Statement{
-			Path: "/ip/route", Key: c + "@" + iface,
-			Attributes: map[string]string{
-				"dst-address": c,
-				"gateway":     iface,
-				"distance":    "1",
-				"comment":     "neko-fabric: route via " + iface,
-			},
-		})
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		attrs := map[string]string{
+			"dst-address": c,
+			"distance":    "1",
+			"comment":     "neko-mesh: remote site",
+		}
+		if gateway != "" {
+			attrs["gateway"] = gateway
+		} else if iface != "" {
+			attrs["gateway"] = iface
+		}
+		key := c + "@" + gateway + iface
+		sts = append(sts, configengine.Statement{Path: "/ip/route", Key: key, Attributes: attrs})
 	}
 	return configengine.State{Statements: sts}
 }

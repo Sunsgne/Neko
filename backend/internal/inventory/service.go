@@ -13,6 +13,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/configengine"
 	"github.com/neko/sdwan/backend/internal/linkqos"
 	"github.com/neko/sdwan/backend/internal/routeros"
+	"github.com/neko/sdwan/backend/internal/routing"
 	"github.com/neko/sdwan/backend/internal/secret"
 	"github.com/neko/sdwan/backend/internal/store"
 )
@@ -539,6 +540,56 @@ func (s *Service) FabricDeploy(ctx context.Context, tenantID, cpeID, popID strin
 	if err != nil {
 		out.Error = err.Error()
 		return out, err
+	}
+	return out, nil
+}
+
+// MeshDeployResult is the outcome of multi-node mesh delivery.
+type MeshDeployResult struct {
+	Results []MeshNodeDeployResult `json:"results"`
+	Failed  int                    `json:"failed"`
+	Error   string                 `json:"error,omitempty"`
+}
+
+// MeshNodeDeployResult is one device apply outcome in a mesh deploy.
+type MeshNodeDeployResult struct {
+	DeviceID string                   `json:"device_id"`
+	Role     string                   `json:"role"`
+	Result   configengine.ApplyResult `json:"result"`
+	Plan     configengine.Plan        `json:"plan"`
+}
+
+// MeshDeploy applies mesh desired config in backbone-first order.
+func (s *Service) MeshDeploy(ctx context.Context, tenantID string, nodes []routing.MeshNodePlan, opts configengine.ApplyOptions) (MeshDeployResult, error) {
+	out := MeshDeployResult{}
+	order := routing.MeshDeployOrder(nodes)
+	byID := make(map[string]routing.MeshNodePlan, len(nodes))
+	for _, n := range nodes {
+		byID[n.DeviceID] = n
+	}
+	var firstErr error
+	for _, id := range order {
+		n, ok := byID[id]
+		if !ok {
+			continue
+		}
+		res, plan, err := s.ApplyDesiredConfig(ctx, tenantID, id, n.Desired, opts)
+		out.Results = append(out.Results, MeshNodeDeployResult{
+			DeviceID: id,
+			Role:     n.Role,
+			Result:   res,
+			Plan:     plan,
+		})
+		if err != nil {
+			out.Failed++
+			if firstErr == nil {
+				firstErr = err
+				out.Error = err.Error()
+			}
+		}
+	}
+	if firstErr != nil {
+		return out, firstErr
 	}
 	return out, nil
 }
