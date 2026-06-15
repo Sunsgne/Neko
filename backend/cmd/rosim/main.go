@@ -109,6 +109,14 @@ func (s *sim) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Command endpoints (e.g. /system/script/run) are POSTed and just return
+	// 200 — like running a script on a real box.
+	if r.Method == http.MethodPost && strings.HasSuffix(path, "/run") {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(item{"ret": "ok"})
+		return
+	}
+
 	// Generic config-section CRUD.
 	s.mu.Lock()
 	defer s.mu.Unlock()
