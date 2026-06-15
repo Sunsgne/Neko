@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui";
+import { Card, EmptyState } from "@/components/ui";
 import { listDevices, type Device } from "@/lib/api";
 import { serverToken } from "@/lib/server-session";
 import { RegisterDeviceButton } from "@/components/register-device";
@@ -28,10 +28,10 @@ export default async function DevicesPage() {
 
       <Card className="p-0">
         {devices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-            <p className="text-sm text-muted">还没有设备</p>
-            <p className="text-xs text-muted">点击右上角「登记设备」或在「发现纳管」中扫描网段批量添加</p>
-          </div>
+          <EmptyState
+            title="还没有设备"
+            description="点击右上角「登记设备」，或在「发现纳管」中扫描网段批量添加"
+          />
         ) : (
           <DeviceTable devices={devices} />
         )}

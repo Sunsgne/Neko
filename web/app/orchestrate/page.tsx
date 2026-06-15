@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Workflow, Eye, Send, Loader2, Server, Router as RouterIcon } from "lucide-react";
-import { Card, CardHeader, Badge } from "@/components/ui";
+import { Card, CardHeader, Badge, EmptyState, PreviewPanelHeader } from "@/components/ui";
 import {
   listDevices, deployFabric,
   type Device, type FabricDeployResult, ApiError,
@@ -87,7 +87,7 @@ export default function OrchestratePage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="space-y-4">
-          <CardHeader title="1 · 站点与接入节点" subtitle="选择 CPE 与它要接入的骨干 POP" />
+          <CardHeader title="1 · 站点与接入节点" />
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted"><RouterIcon className="h-3.5 w-3.5" /> 接入设备 (CPE)</label>
             <select value={cpeId} onChange={(e) => setCpeId(e.target.value)} className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-primary">
@@ -128,14 +128,14 @@ export default function OrchestratePage() {
           {error && <p className="text-sm text-danger">{error}</p>}
         </Card>
 
-        <Card>
-          <CardHeader
-            title="生成配置 / 下发结果"
-            subtitle={cpe && pop ? `${cpe.name} ⇄ ${pop.name}（组网 · 内网打通）` : "选择 CPE 与 POP 后预览"}
+        <Card className="flex min-h-[520px] flex-col overflow-hidden p-0">
+          <PreviewPanelHeader
+            title="配置预览"
+            context={fabricResult && cpe && pop ? `${cpe.name} ⇄ ${pop.name}` : undefined}
             action={previewPlan ? <Badge tone={riskTone[previewPlan.aggregate_risk] ?? "neutral"}>风险 {previewPlan.aggregate_risk}</Badge> : undefined}
           />
           {fabricResult && (
-            <div className="mb-3 flex gap-2">
+            <div className="flex gap-2 px-4 pb-3">
               <button onClick={() => setPreviewSide("cpe")}
                 className={`rounded-md border px-2.5 py-1 text-xs ${previewSide === "cpe" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted"}`}>
                 CPE · {cpe?.name ?? "—"}
@@ -146,14 +146,16 @@ export default function OrchestratePage() {
               </button>
             </div>
           )}
-          {!fabricResult && (
-            <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
-              <Workflow className="h-6 w-6 text-primary" />
-              点击「预览」生成 WireGuard 隧道与内网路由配置
-            </div>
-          )}
-          {fabricResult?.deploy && (
-            <div className="mb-3 space-y-2 text-sm">
+          {!fabricResult ? (
+            <EmptyState
+              icon={<Workflow />}
+              title="暂无预览"
+              description="选择 CPE 与 POP 后，点「预览」生成隧道与内网路由配置"
+            />
+          ) : (
+            <>
+          {fabricResult.deploy && (
+            <div className="mb-3 space-y-2 px-4 text-sm">
               <div className={`rounded-lg border p-2 ${fabricResult.deploy.pop_result.status === "committed" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
                 POP：{fabricResult.deploy.pop_result.status}{fabricResult.deploy.pop_result.reason ? ` · ${fabricResult.deploy.pop_result.reason}` : ""}
               </div>
@@ -162,9 +164,9 @@ export default function OrchestratePage() {
               </div>
             </div>
           )}
-          {fabricResult?.error && <p className="mb-2 text-sm text-danger">{fabricResult.error}</p>}
+          {fabricResult.error && <p className="mb-2 px-4 text-sm text-danger">{fabricResult.error}</p>}
           {previewDesired && (
-            <pre className="max-h-[460px] overflow-auto rounded-lg border border-border bg-elevated/50 p-3 text-xs leading-relaxed">
+            <pre className="mx-4 mb-4 max-h-[460px] overflow-auto rounded-lg border border-border bg-elevated/50 p-3 text-xs leading-relaxed">
               {previewDesired.statements.map((st) => (
                 <div key={st.path + st.key} className="mb-1">
                   <span className="text-primary">{st.path}</span> <span className="text-muted">{st.key}</span>
@@ -172,6 +174,8 @@ export default function OrchestratePage() {
                 </div>
               ))}
             </pre>
+          )}
+            </>
           )}
         </Card>
       </div>

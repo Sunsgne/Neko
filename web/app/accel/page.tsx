@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Rocket, Loader2, Eye, Send, Server, Router as RouterIcon, RefreshCw, KeyRound, ListTree } from "lucide-react";
-import { Card, CardHeader, Badge } from "@/components/ui";
+import { Card, CardHeader, Badge, EmptyState, PreviewPanelHeader } from "@/components/ui";
 import {
   listDevices, proposeAccel, deployFabric, orchestrate,
   getChnroutes, refreshChnroutes, chinaSplit,
@@ -236,7 +236,7 @@ export default function AccelPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="space-y-4">
-          <CardHeader title="1 · 设备与 POP" subtitle="从已托管设备中选择" />
+          <CardHeader title="1 · 设备与 POP" />
           <SelectField icon={RouterIcon} label="客户侧设备 (CPE)" value={cpeId} onChange={setCpeId}
             options={cpes.map((d) => ({ value: d.id, label: `${d.name} · ${d.mgmt_address}` }))} />
           {needsPop && (
@@ -313,18 +313,20 @@ export default function AccelPage() {
           {error && <p className="text-sm text-danger">{error}</p>}
         </Card>
 
-        <Card>
-          <CardHeader
-            title="配置预览 / 下发结果"
-            subtitle={cpe && pop && needsPop ? `${cpe.name} ⇄ ${pop.name}` : cpe?.name ?? "选择设备后生成"}
+        <Card className="flex min-h-[520px] flex-col overflow-hidden p-0">
+          <PreviewPanelHeader
+            title="配置预览"
+            context={result || csResult
+              ? (cpe && pop && needsPop ? `${cpe.name} ⇄ ${pop.name}` : cpe?.name)
+              : undefined}
             action={previewSide !== "routes" && previewPlan
               ? <Badge tone={riskTone[previewPlan.aggregate_risk] ?? "neutral"}>风险 {previewPlan.aggregate_risk}</Badge>
               : csResult?.route_count
                 ? <Badge tone="primary">{csResult.route_count.toLocaleString()} 条路由</Badge>
                 : undefined}
           />
-          {needsPop && (
-            <div className="mb-3 flex flex-wrap gap-2">
+          {(result || csResult) && needsPop && (
+            <div className="flex flex-wrap gap-2 px-4 pb-3">
               <SideTab active={previewSide === "cpe"} onClick={() => setPreviewSide("cpe")} label={`CPE · ${cpe?.name ?? "—"}`} />
               <SideTab active={previewSide === "pop"} onClick={() => setPreviewSide("pop")} label={`POP · ${pop?.name ?? "—"}`} />
               {isChinaSplit && (
@@ -333,7 +335,7 @@ export default function AccelPage() {
             </div>
           )}
           {result?.deploy && (
-            <div className="mb-3 space-y-2 text-sm">
+            <div className="mb-3 space-y-2 px-4 text-sm">
               {needsPop && <DeployStatus label="POP 隧道" res={result.deploy.pop_result} />}
               <DeployStatus label="CPE 隧道" res={result.deploy.cpe_result} />
               {csResult?.status && (
@@ -341,7 +343,8 @@ export default function AccelPage() {
               )}
             </div>
           )}
-          {result?.error && <p className="mb-2 text-sm text-danger">{result.error}</p>}
+          {result?.error && <p className="mb-2 px-4 text-sm text-danger">{result.error}</p>}
+          <div className="flex-1 overflow-auto px-4 pb-4">
           {previewSide === "routes" && csResult?.script ? (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2 text-xs">
@@ -354,10 +357,12 @@ export default function AccelPage() {
           ) : previewDesired ? (
             <ConfigPreview state={previewDesired} />
           ) : (
-            <p className="py-16 text-center text-sm text-muted">
-              {needsPop ? "选择设备并生成 WG 参数后点「预览」" : "选择 CPE 后点「预览」"}
-            </p>
+            <EmptyState
+              title="暂无预览"
+              description={needsPop ? "选择设备并生成 WG 参数后，点「预览」查看配置" : "选择 CPE 后点「预览」"}
+            />
           )}
+          </div>
         </Card>
       </div>
     </div>

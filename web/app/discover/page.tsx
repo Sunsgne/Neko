@@ -86,7 +86,7 @@ export default function DiscoverPage() {
 
       {cands.length > 0 && (
         <Card className="p-0">
-          <CardHeader title="发现结果" subtitle={`${cands.length} 台 · 勾选后批量纳管`} action={
+          <CardHeader title="发现结果" subtitle={`${cands.length} 台`} inset border action={
             <button onClick={onboard} disabled={onboarding}
               className="mr-5 flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60">
               {onboarding ? <Loader2 className="h-4 w-4 animate-spin" /> : <LinkIcon className="h-4 w-4" />} 批量纳管

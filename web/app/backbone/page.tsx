@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui";
+import { Card, EmptyState } from "@/components/ui";
 import { listDevices, type Device } from "@/lib/api";
 import { serverToken } from "@/lib/server-session";
 import { RegisterDeviceButton } from "@/components/register-device";
@@ -38,10 +38,10 @@ export default async function BackbonePage() {
 
       <Card className="p-0">
         {nodes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-            <p className="text-sm text-muted">还没有骨干节点 / 出口网关</p>
-            <p className="text-xs text-muted">点击右上角登记，或在「发现纳管」中批量添加</p>
-          </div>
+          <EmptyState
+            title="还没有骨干节点"
+            description="点击右上角登记，或在「发现纳管」中批量添加"
+          />
         ) : (
           <DeviceTable devices={nodes} />
         )}

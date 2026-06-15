@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus, Loader2, Pencil, Trash2, PauseCircle, PlayCircle,
 } from "lucide-react";
-import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
+import { Card, CardHeader, Badge, StatusDot, EmptyState } from "@/components/ui";
 import {
   listTenants, createTenant, updateTenant, deleteTenant,
   type Tenant, ApiError,
@@ -134,8 +134,8 @@ export function TenantsBoard() {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : tenants.length === 0 ? (
-        <Card className="py-16 text-center text-sm text-muted">
-          暂无租户，点击「新建租户」创建第一个客户组织
+        <Card className="p-0">
+          <EmptyState title="暂无租户" description="点击「新建租户」创建第一个客户组织" />
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

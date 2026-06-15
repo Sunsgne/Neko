@@ -112,7 +112,7 @@ export default function DnsPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-0">
-          <CardHeader title="DNS 服务器池" subtitle="勾选后可下发到设备" />
+          <CardHeader title="DNS 服务器池" inset border />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -142,7 +142,9 @@ export default function DnsPage() {
                     </td>
                   </tr>
                 ))}
-                {servers.length === 0 && <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-muted">DNS 池为空，请在上方添加。</td></tr>}
+                {servers.length === 0 && (
+                  <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-muted">DNS 池为空，请在上方添加</td></tr>
+                )}
               </tbody>
             </table>
           </div>

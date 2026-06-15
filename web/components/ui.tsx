@@ -5,15 +5,79 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return <div className={cn("card", className)} {...props} />;
 }
 
-export function CardHeader({ title, subtitle, action, className }: { title: string; subtitle?: string; action?: React.ReactNode; className?: string }) {
+export function CardHeader({
+  title,
+  subtitle,
+  action,
+  className,
+  inset,
+  border,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  className?: string;
+  /** Adds horizontal padding for cards with p-0 */
+  inset?: boolean;
+  /** Bottom border separator */
+  border?: boolean;
+}) {
   return (
-    <div className={cn("mb-4 flex items-start justify-between gap-4", className)}>
-      <div>
+    <div
+      className={cn(
+        "flex items-start justify-between gap-4",
+        inset ? "px-4 pt-4" : "mb-4",
+        border && "border-b border-border pb-3",
+        className,
+      )}
+    >
+      <div className="min-w-0">
         <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
         {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
       </div>
       {action}
     </div>
+  );
+}
+
+export function EmptyState({
+  icon,
+  title,
+  description,
+  className,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center", className)}>
+      {icon && <div className="mb-1 text-primary [&>svg]:h-7 [&>svg]:w-7">{icon}</div>}
+      <p className="text-sm font-medium text-foreground/90">{title}</p>
+      {description && <p className="max-w-sm text-xs leading-relaxed text-muted">{description}</p>}
+    </div>
+  );
+}
+
+/** Preview panel header: context subtitle only when data is available. */
+export function PreviewPanelHeader({
+  title,
+  context,
+  action,
+}: {
+  title: string;
+  context?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <CardHeader
+      title={title}
+      subtitle={context}
+      action={action}
+      inset
+      border
+    />
   );
 }
 

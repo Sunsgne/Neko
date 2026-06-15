@@ -2,14 +2,13 @@
 
 import * as React from "react";
 import { Loader2, Plus, Trash2, Save, RefreshCw, SlidersHorizontal, X, Search } from "lucide-react";
-import { Card, CardHeader, Badge } from "@/components/ui";
+import { Card, CardHeader, Badge, EmptyState } from "@/components/ui";
 import {
   listDevices, getConfigCatalog, restList, restCreate, restUpdate, restDelete,
   type Device, type ConfigSectionGroup, type ConfigSection, type RestItem, ApiError,
 } from "@/lib/api";
 import { currentToken } from "@/lib/session";
 
-// Keys RouterOS returns that aren't user-editable attributes.
 const READONLY_KEYS = new Set([".id", ".nextid", "dynamic", "invalid", "default"]);
 
 export default function ConfigPage() {
@@ -77,11 +76,13 @@ export default function ConfigPage() {
     return items.filter((it) => JSON.stringify(it).toLowerCase().includes(q));
   }, [items, filter]);
 
+  const deviceLabel = devices.find((d) => d.id === deviceId)?.name;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">远程配置</h1>
-        <p className="mt-1 text-sm text-muted">无需登录设备，远程读写 RouterOS 全部菜单的配置（使用已托管设备的保存凭据）</p>
+        <p className="mt-1 text-sm text-muted">无需登录设备，远程读写 RouterOS 全部菜单配置（使用已托管设备的保存凭据）</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -99,10 +100,11 @@ export default function ConfigPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
-        {/* Menu tree */}
-        <Card className="max-h-[70vh] overflow-auto p-0">
-          <CardHeader title="菜单" subtitle="选择配置段" />
-          <div className="px-2 pb-3">
+        <Card className="flex max-h-[70vh] flex-col overflow-hidden p-0">
+          <div className="shrink-0 border-b border-border px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">RouterOS 菜单</p>
+          </div>
+          <div className="flex-1 overflow-auto px-2 py-2">
             {catalog.map((g) => (
               <div key={g.menu} className="mb-2">
                 <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{g.menu}</div>
@@ -118,75 +120,84 @@ export default function ConfigPage() {
           </div>
         </Card>
 
-        {/* Items */}
-        <Card className="p-0">
-          <CardHeader
-            title={section ? section.label : "请选择配置段"}
-            subtitle={section ? section.path : "左侧菜单覆盖 RouterOS 全部功能"}
-            action={section ? (
-              section.singleton ? (
-                <button onClick={() => { setCreating(false); setEditing(items[0] ?? {}); }}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-background hover:opacity-90">
-                  <Save className="h-3.5 w-3.5" /> 编辑设置
-                </button>
+        <Card className="flex min-h-[480px] flex-col overflow-hidden p-0">
+          {section ? (
+            <>
+              <CardHeader
+                title={section.label}
+                subtitle={section.path}
+                inset
+                border
+                action={
+                  section.singleton ? (
+                    <button onClick={() => { setCreating(false); setEditing(items[0] ?? {}); }}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-background hover:opacity-90">
+                      <Save className="h-3.5 w-3.5" /> 编辑设置
+                    </button>
+                  ) : (
+                    <button onClick={() => { setCreating(true); setEditing({}); }}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-background hover:opacity-90">
+                      <Plus className="h-3.5 w-3.5" /> 新增
+                    </button>
+                  )
+                }
+              />
+              {error && <div className="mx-4 mb-3 rounded-lg border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</div>}
+              {loading ? (
+                <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted">
+                  <Loader2 className="h-4 w-4 animate-spin" /> 读取中…
+                </div>
               ) : (
-                <button onClick={() => { setCreating(true); setEditing({}); }}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-background hover:opacity-90">
-                  <Plus className="h-3.5 w-3.5" /> 新增
-                </button>
-              )
-            ) : undefined}
-          />
-
-          {error && <div className="mx-4 mb-3 rounded-lg border border-danger/40 bg-danger/10 p-2 text-sm text-danger">{error}</div>}
-
-          {!section ? (
-            <div className="flex flex-col items-center gap-2 py-20 text-center text-sm text-muted">
-              <SlidersHorizontal className="h-6 w-6 text-primary" /> 从左侧选择一个配置段
-            </div>
-          ) : loading ? (
-            <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" /> 读取中…</div>
-          ) : (
-            <div className="px-4 pb-4">
-              {items.length > 1 && (
-                <div className="mb-3 flex items-center gap-2">
-                  <Search className="h-3.5 w-3.5 text-muted" />
-                  <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="过滤…"
-                    className="w-full rounded-md border border-border bg-elevated px-2 py-1 text-xs outline-none focus:border-primary" />
-                  <span className="shrink-0 text-xs text-muted">{shown.length}/{items.length}</span>
+                <div className="flex-1 overflow-auto px-4 pb-4">
+                  {items.length > 1 && (
+                    <div className="mb-3 flex items-center gap-2">
+                      <Search className="h-3.5 w-3.5 text-muted" />
+                      <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="过滤…"
+                        className="w-full rounded-md border border-border bg-elevated px-2 py-1 text-xs outline-none focus:border-primary" />
+                      <span className="shrink-0 text-xs text-muted">{shown.length}/{items.length}</span>
+                    </div>
+                  )}
+                  <div className="data-table-wrap">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          {columns.map((c) => <th key={c}>{c}</th>)}
+                          <th className="text-right">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shown.map((it, i) => (
+                          <tr key={String(it[".id"] ?? i)}>
+                            {columns.map((c) => (
+                              <td key={c} className="max-w-[220px] truncate font-mono text-xs">{fmt(it[c])}</td>
+                            ))}
+                            <td className="text-right">
+                              <button onClick={() => { setCreating(false); setEditing(it); }} title="编辑"
+                                className="rounded-md p-1.5 text-muted hover:bg-primary/10 hover:text-primary"><Save className="h-4 w-4" /></button>
+                              {it[".id"] !== undefined && (
+                                <button onClick={() => onDelete(it)} title="删除"
+                                  className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"><Trash2 className="h-4 w-4" /></button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {items.length === 0 && (
+                          <tr><td colSpan={columns.length + 1} className="py-10 text-center text-sm text-muted">
+                            该配置段暂无条目{!section.singleton && "，点「新增」添加"}
+                          </td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-y border-border text-left text-xs uppercase tracking-wide text-muted">
-                      {columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}
-                      <th className="px-3 py-2 text-right font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((it, i) => (
-                      <tr key={String(it[".id"] ?? i)} className="border-b border-border/50 hover:bg-elevated/40">
-                        {columns.map((c) => (
-                          <td key={c} className="max-w-[220px] truncate px-3 py-2 font-mono text-xs">{fmt(it[c])}</td>
-                        ))}
-                        <td className="px-3 py-2 text-right">
-                          <button onClick={() => { setCreating(false); setEditing(it); }} title="编辑"
-                            className="rounded-md p-1.5 text-muted hover:bg-primary/10 hover:text-primary"><Save className="h-4 w-4" /></button>
-                          {it[".id"] !== undefined && (
-                            <button onClick={() => onDelete(it)} title="删除"
-                              className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger"><Trash2 className="h-4 w-4" /></button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {items.length === 0 && (
-                      <tr><td colSpan={columns.length + 1} className="px-3 py-10 text-center text-sm text-muted">该配置段暂无条目。{!section.singleton && "点「新增」添加。"}</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={<SlidersHorizontal />}
+              title="选择配置段"
+              description={deviceLabel ? `在左侧菜单选择要读写的配置项（当前设备：${deviceLabel}）` : "在左侧菜单选择要读写的 RouterOS 配置段"}
+            />
           )}
         </Card>
       </div>
@@ -257,8 +268,8 @@ function ItemEditor({ section, item, creating, deviceId, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold">{creating ? "新增" : "编辑"} · {section.label}</div>

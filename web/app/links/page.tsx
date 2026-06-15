@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Plus, Trash2, Loader2, Activity, RefreshCw, Gauge } from "lucide-react";
-import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
+import { Card, CardHeader, Badge, StatusDot, EmptyState } from "@/components/ui";
 import {
   listLinks, listDevices, createLink, deleteLink, probeLink,
   type Link, type Device, ApiError,
@@ -144,11 +144,12 @@ export default function LinksPage() {
       )}
 
       {links.length === 0 ? (
-        <Card>
-          <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
-            <Activity className="h-6 w-6 text-primary" />
-            还没有监控链路。点「添加链路」选择设备与探测目标，平台会从设备实测质量。
-          </div>
+        <Card className="p-0">
+          <EmptyState
+            icon={<Activity />}
+            title="还没有监控链路"
+            description="点「添加链路」选择设备与探测目标，平台将从设备实测延迟、抖动与丢包"
+          />
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
