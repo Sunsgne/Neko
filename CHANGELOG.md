@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **DoH 证书校验参数**：之前下发 DoH 时硬编码 `verify-doh-cert=yes`,但 IP 形式的 DoH 端点(如 `https://202.101.51.194:9291/dns-query`)无法校验证书会导致解析失败。现按真实 RouterOS 写法：`dns.BuildConfig` 接受 `Options{VerifyDoHCert}`,nil 时自动判定(IP 端点→`no`,域名端点→`yes`),支持显式覆盖;`POST /devices/{id}/dns` 增 `verify_doh_cert`,前端下发卡片在勾选 DoH 时显示「验证 DoH 证书」开关(自动/关闭/开启)。已端到端验证三种情形。
 - **配置备份无法查看**：快照仅存了 `state`(JSON)但无接口返回内容,前端列表只显示「时间 + N 条配置」无法展开。新增 `GET /devices/{id}/snapshots/{snapshotId}`(返回完整 `state.statements`)与 `inventory.GetSnapshot`(设备/租户校验),前端快照行可点击展开,按 RouterOS 段分组显示配置项并支持关键字过滤。已在模拟器上端到端验证(enroll→snapshot→list→查看内容,含 404 校验)。
 
 ### Added

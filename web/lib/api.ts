@@ -479,7 +479,7 @@ export interface DNSApplyResult {
 
 export async function applyDNS(
   deviceId: string,
-  body: { server_ids?: string[]; server_addresses?: string[]; username?: string; password?: string; dry_run: boolean },
+  body: { server_ids?: string[]; server_addresses?: string[]; verify_doh_cert?: boolean; username?: string; password?: string; dry_run: boolean },
   token?: string,
 ): Promise<DNSApplyResult> {
   const env = await request<DNSApplyResult>("POST", `/api/v1/devices/${deviceId}/dns`, { token, body });

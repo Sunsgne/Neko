@@ -22,6 +22,7 @@ export default function DnsPage() {
   const [deviceId, setDeviceId] = React.useState("");
   const [sel, setSel] = React.useState<Record<string, boolean>>({});
   const [result, setResult] = React.useState<DNSApplyResult | null>(null);
+  const [verifyDoh, setVerifyDoh] = React.useState<"auto" | "on" | "off">("auto");
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -77,13 +78,15 @@ export default function DnsPage() {
     }
     setBusy(true);
     try {
-      setResult(await applyDNS(deviceId, { server_ids: ids, username: creds?.u, password: creds?.p, dry_run: dryRun }, currentToken()));
+      const verify = verifyDoh === "auto" ? undefined : verifyDoh === "on";
+      setResult(await applyDNS(deviceId, { server_ids: ids, verify_doh_cert: verify, username: creds?.u, password: creds?.p, dry_run: dryRun }, currentToken()));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "下发失败");
     } finally { setBusy(false); }
   }
 
   const healthy = servers.filter((s) => s.healthy).length;
+  const dohSelected = servers.some((s) => sel[s.id] && s.kind === "doh");
 
   return (
     <div className="space-y-6">
@@ -159,6 +162,18 @@ export default function DnsPage() {
               {devices.length === 0 && <option value="">（无已托管设备）</option>}
               {devices.map((d) => <option key={d.id} value={d.id}>{d.name} · {d.mgmt_address}</option>)}
             </select>
+            {dohSelected && (
+              <div className="rounded-lg border border-border bg-elevated/40 p-3 text-sm">
+                <label className="mb-1.5 block text-xs uppercase tracking-wide text-muted">验证 DoH 证书 (verify-doh-cert)</label>
+                <select value={verifyDoh} onChange={(e) => setVerifyDoh(e.target.value as "auto" | "on" | "off")}
+                  className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-primary">
+                  <option value="auto">自动（IP 端点关闭 / 域名端点开启）</option>
+                  <option value="off">关闭（IP 形式的 DoH 必须关闭）</option>
+                  <option value="on">开启（需设备已导入 CA 证书）</option>
+                </select>
+                <p className="mt-1 text-xs text-muted">IP 形式的 DoH（如 https://202.101.51.194:9291/dns-query）无法校验证书，需关闭。</p>
+              </div>
+            )}
             <div className="flex gap-2">
               <button onClick={() => deliver(true)} disabled={busy} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary disabled:opacity-60">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} 预览

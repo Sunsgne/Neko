@@ -69,9 +69,12 @@ type dnsApplyRequest struct {
 	// ServerAddresses (treated as plain UDP) for backward compatibility.
 	ServerIDs       []string `json:"server_ids"`
 	ServerAddresses []string `json:"server_addresses"`
-	Username        string   `json:"username"`
-	Password        string   `json:"password"`
-	DryRun          bool     `json:"dry_run"`
+	// VerifyDoHCert overrides DoH certificate verification (nil = auto: off for
+	// IP-based DoH endpoints, on for hostname endpoints).
+	VerifyDoHCert *bool  `json:"verify_doh_cert"`
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	DryRun        bool   `json:"dry_run"`
 }
 
 // handleDNSApply generates the /ip/dns config from the selected servers and
@@ -112,7 +115,7 @@ func (s *Server) handleDNSApply(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "empty", "请至少选择一个 DNS 服务器")
 		return
 	}
-	desired := dns.BuildConfig(primary, nil)
+	desired := dns.BuildConfig(primary, nil, dns.Options{VerifyDoHCert: req.VerifyDoHCert})
 
 	if req.DryRun {
 		plan := configengine.ComputeDiff(configengine.State{}, desired, configengine.RiskOptions{})
