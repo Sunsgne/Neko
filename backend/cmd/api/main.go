@@ -75,7 +75,7 @@ func main() {
 	}
 
 	now := func() time.Time { return time.Now().UTC() }
-	tenantSvc := tenant.NewService(st.Tenants(), func() string { return idgen.New("ten") }, now)
+	tenantSvc := tenant.NewService(st, func() string { return idgen.New("ten") }, now)
 	// Credential sealer for at-rest encryption of device credentials.
 	sealer, err := secret.New(cfg.SecretKey)
 	if err != nil {

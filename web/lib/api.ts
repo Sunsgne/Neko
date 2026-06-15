@@ -17,6 +17,13 @@ function baseURL(): string {
 
 export type TenantStatus = "active" | "suspended";
 
+export interface TenantStats {
+  device_count: number;
+  site_count: number;
+  alert_count: number;
+  firing_alerts: number;
+}
+
 export interface Tenant {
   id: string;
   name: string;
@@ -24,6 +31,7 @@ export interface Tenant {
   status: TenantStatus;
   created_at: string;
   updated_at: string;
+  stats?: TenantStats;
 }
 
 export type DevicePlatform = "routerboard" | "chr" | "x86" | "unknown";
@@ -216,14 +224,28 @@ export async function logout(token: string): Promise<void> {
   }
 }
 
-export async function listTenants(token?: string): Promise<Tenant[]> {
-  const env = await request<Tenant[]>("GET", "/api/v1/tenants", { token });
+export async function listTenants(token?: string, includeStats = true): Promise<Tenant[]> {
+  const q = includeStats ? "?include=stats&page_size=200" : "";
+  const env = await request<Tenant[]>("GET", `/api/v1/tenants${q}`, { token });
   return env.data ?? [];
 }
 
-export async function createTenant(name: string, token?: string): Promise<Tenant> {
-  const env = await request<Tenant>("POST", "/api/v1/tenants", { token, body: { name } });
+export async function createTenant(body: { name: string; slug?: string }, token?: string): Promise<Tenant> {
+  const env = await request<Tenant>("POST", "/api/v1/tenants", { token, body });
   return env.data;
+}
+
+export async function updateTenant(
+  id: string,
+  body: { name?: string; slug?: string; status?: TenantStatus },
+  token?: string,
+): Promise<Tenant> {
+  const env = await request<Tenant>("PATCH", `/api/v1/tenants/${id}`, { token, body });
+  return env.data;
+}
+
+export async function deleteTenant(id: string, confirmSlug: string, token?: string): Promise<void> {
+  await request("DELETE", `/api/v1/tenants/${id}`, { token, body: { confirm_slug: confirmSlug } });
 }
 
 export async function listDevices(token?: string, role?: DeviceRole): Promise<Device[]> {

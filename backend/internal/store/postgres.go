@@ -487,6 +487,45 @@ func (r *pgTenantRepo) List(ctx context.Context, page Page) ([]*Tenant, int, err
 	return out, total, rows.Err()
 }
 
+func (r *pgTenantRepo) Update(ctx context.Context, t *Tenant) error {
+	res, err := r.pool.Exec(ctx,
+		`UPDATE tenants SET name=$2, slug=$3, status=$4, updated_at=$5 WHERE id=$1`,
+		t.ID, t.Name, t.Slug, string(t.Status), t.UpdatedAt)
+	if err != nil {
+		return mapPgError(err)
+	}
+	if res.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *pgTenantRepo) Delete(ctx context.Context, id string) error {
+	res, err := r.pool.Exec(ctx, `DELETE FROM tenants WHERE id=$1`, id)
+	if err != nil {
+		return mapPgError(err)
+	}
+	if res.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *pgTenantRepo) Stats(ctx context.Context, id string) (TenantStats, error) {
+	var st TenantStats
+	err := r.pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*)::int FROM devices WHERE tenant_id = $1),
+			(SELECT count(*)::int FROM sites WHERE tenant_id = $1),
+			(SELECT count(*)::int FROM alerts WHERE tenant_id = $1),
+			(SELECT count(*)::int FROM alerts WHERE tenant_id = $1 AND state = 'firing')
+	`, id).Scan(&st.DeviceCount, &st.SiteCount, &st.AlertCount, &st.FiringAlerts)
+	if err != nil {
+		return TenantStats{}, mapPgError(err)
+	}
+	return st, nil
+}
+
 type pgDeviceRepo struct{ pool *pgxpool.Pool }
 
 func (r *pgDeviceRepo) Create(ctx context.Context, d *Device) error {

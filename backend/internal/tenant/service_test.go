@@ -14,7 +14,7 @@ func newTestService() *Service {
 	n := 0
 	id := func() string { n++; return "ten_" + string(rune('a'+n)) }
 	now := func() time.Time { return time.Unix(0, 0).UTC() }
-	return NewService(st.Tenants(), id, now)
+	return NewService(st, id, now)
 }
 
 func TestCreateTenant(t *testing.T) {
@@ -67,5 +67,38 @@ func TestListTenantsPagination(t *testing.T) {
 	}
 	if len(items) != 2 {
 		t.Errorf("len(items) = %d, want 2", len(items))
+	}
+}
+
+func TestUpdateTenant(t *testing.T) {
+	svc := newTestService()
+	created, err := svc.Create(context.Background(), CreateInput{Name: "Acme", Slug: "acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "Acme Updated"
+	got, err := svc.Update(context.Background(), created.ID, UpdateInput{Name: &name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "Acme Updated" {
+		t.Errorf("name = %q", got.Name)
+	}
+}
+
+func TestDeleteTenantConfirmSlug(t *testing.T) {
+	svc := newTestService()
+	created, err := svc.Create(context.Background(), CreateInput{Name: "Temp", Slug: "temp-co"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Delete(context.Background(), created.ID, DeleteInput{ConfirmSlug: "wrong"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+	if err := svc.Delete(context.Background(), created.ID, DeleteInput{ConfirmSlug: "temp-co"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Get(context.Background(), created.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("expected not found after delete, got %v", err)
 	}
 }

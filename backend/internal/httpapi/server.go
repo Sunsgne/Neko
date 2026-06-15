@@ -114,6 +114,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/tenants", s.handleListTenants)
 	mux.HandleFunc("POST /api/v1/tenants", s.handleCreateTenant)
 	mux.HandleFunc("GET /api/v1/tenants/{id}", s.handleGetTenant)
+	mux.HandleFunc("PATCH /api/v1/tenants/{id}", s.handleUpdateTenant)
+	mux.HandleFunc("DELETE /api/v1/tenants/{id}", s.handleDeleteTenant)
 
 	// Devices (tenant-scoped)
 	mux.HandleFunc("GET /api/v1/devices", s.handleListDevices)

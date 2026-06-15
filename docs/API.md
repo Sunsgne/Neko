@@ -28,9 +28,11 @@
 | --- | --- | --- |
 | GET | `/healthz` | liveness |
 | GET | `/readyz` | readiness |
-| GET | `/api/v1/tenants` | 租户列表（运营端） |
+| GET | `/api/v1/tenants?include=stats` | 租户列表（运营端，含设备/站点/告警统计） |
 | POST | `/api/v1/tenants` | 创建租户 |
-| GET | `/api/v1/tenants/{id}` | 租户详情 |
+| GET | `/api/v1/tenants/{id}?include=stats` | 租户详情 |
+| PATCH | `/api/v1/tenants/{id}` | 更新租户（名称 / slug / 状态 active|suspended） |
+| DELETE | `/api/v1/tenants/{id}` | 删除租户（body: `{confirm_slug}`，级联删除关联数据） |
 | GET | `/api/v1/devices` | 设备列表 |
 | POST | `/api/v1/devices` | 登记设备（进入纳管流程） |
 | GET | `/api/v1/devices/{id}` | 设备详情（含能力矩阵） |

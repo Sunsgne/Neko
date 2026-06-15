@@ -359,6 +359,107 @@ func (r *memTenantRepo) List(_ context.Context, page Page) ([]*Tenant, int, erro
 	return paginate(all, page)
 }
 
+func (r *memTenantRepo) Update(_ context.Context, t *Tenant) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.items[t.ID]; !ok {
+		return ErrNotFound
+	}
+	for id, existing := range r.items {
+		if id != t.ID && existing.Slug == t.Slug {
+			return ErrConflict
+		}
+	}
+	cp := *t
+	r.items[t.ID] = &cp
+	return nil
+}
+
+func (r *memTenantRepo) Delete(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.items[id]; !ok {
+		return ErrNotFound
+	}
+	delete(r.items, id)
+	return nil
+}
+
+// DeleteTenantCascade removes a tenant and all in-memory scoped records.
+func (m *MemoryStore) DeleteTenantCascade(ctx context.Context, tenantID string) error {
+	if _, err := m.tenants.Get(ctx, tenantID); err != nil {
+		return err
+	}
+	m.devices.mu.Lock()
+	devIDs := make([]string, 0)
+	for id, d := range m.devices.items {
+		if d.TenantID == tenantID {
+			devIDs = append(devIDs, id)
+			delete(m.devices.items, id)
+		}
+	}
+	m.devices.mu.Unlock()
+
+	m.creds.mu.Lock()
+	for _, id := range devIDs {
+		delete(m.creds.items, id)
+	}
+	m.creds.mu.Unlock()
+
+	m.alerts.mu.Lock()
+	for id, a := range m.alerts.items {
+		if a.TenantID == tenantID {
+			delete(m.alerts.items, id)
+		}
+	}
+	m.alerts.mu.Unlock()
+
+	m.links.mu.Lock()
+	for id, l := range m.links.items {
+		if l.TenantID == tenantID {
+			delete(m.links.items, id)
+		}
+	}
+	m.links.mu.Unlock()
+
+	m.snaps.mu.Lock()
+	for id, s := range m.snaps.items {
+		if s.TenantID == tenantID {
+			delete(m.snaps.items, id)
+		}
+	}
+	m.snaps.mu.Unlock()
+
+	return m.tenants.Delete(ctx, tenantID)
+}
+
+// TenantStats returns resource counts for a tenant (memory store).
+func (m *MemoryStore) TenantStats(ctx context.Context, tenantID string) (TenantStats, error) {
+	if _, err := m.tenants.Get(ctx, tenantID); err != nil {
+		return TenantStats{}, err
+	}
+	var st TenantStats
+	m.devices.mu.RLock()
+	for _, d := range m.devices.items {
+		if d.TenantID == tenantID {
+			st.DeviceCount++
+		}
+	}
+	m.devices.mu.RUnlock()
+
+	m.alerts.mu.RLock()
+	for _, a := range m.alerts.items {
+		if a.TenantID == tenantID {
+			st.AlertCount++
+			if a.State == "firing" {
+				st.FiringAlerts++
+			}
+		}
+	}
+	m.alerts.mu.RUnlock()
+	return st, nil
+}
+
 type memDeviceRepo struct {
 	mu    sync.RWMutex
 	items map[string]*Device

@@ -45,6 +45,16 @@ type TenantRepository interface {
 	Create(ctx context.Context, t *Tenant) error
 	Get(ctx context.Context, id string) (*Tenant, error)
 	List(ctx context.Context, page Page) ([]*Tenant, int, error)
+	Update(ctx context.Context, t *Tenant) error
+	Delete(ctx context.Context, id string) error
+}
+
+// TenantStats summarizes tenant-scoped resource counts.
+type TenantStats struct {
+	DeviceCount  int `json:"device_count"`
+	SiteCount    int `json:"site_count"`
+	AlertCount   int `json:"alert_count"`
+	FiringAlerts int `json:"firing_alerts"`
 }
 
 // DeviceRepository persists devices, scoped by tenant when tenantID != "".
