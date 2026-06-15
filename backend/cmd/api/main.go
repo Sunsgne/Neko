@@ -119,6 +119,7 @@ func main() {
 		Audit:     auditRec,
 		Alerts:    st.Alerts(),
 		Dns:       st.Dns(),
+		Links:     st.Links(),
 		VM:        vmetrics.New(cfg.VMURL),
 		IDGen:     idgen.New,
 		Metrics:   metrics.NewRegistry(),

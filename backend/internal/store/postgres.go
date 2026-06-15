@@ -25,6 +25,7 @@ type PostgresStore struct {
 	snaps   *pgSnapshotRepo
 	sess    *pgSessionRepo
 	dns     *pgDNSRepo
+	links   *pgLinkRepo
 }
 
 // OpenPostgres connects to PostgreSQL and verifies connectivity.
@@ -48,6 +49,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 		snaps:   &pgSnapshotRepo{pool: pool},
 		sess:    &pgSessionRepo{pool: pool},
 		dns:     &pgDNSRepo{pool: pool},
+		links:   &pgLinkRepo{pool: pool},
 	}, nil
 }
 
@@ -106,6 +108,99 @@ func (s *PostgresStore) Alerts() AlertRepository             { return s.alerts }
 func (s *PostgresStore) Snapshots() ConfigSnapshotRepository { return s.snaps }
 func (s *PostgresStore) Sessions() SessionRepository         { return s.sess }
 func (s *PostgresStore) Dns() DNSRepository                  { return s.dns }
+func (s *PostgresStore) Links() LinkRepository               { return s.links }
+
+type pgLinkRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgLinkRepo) Create(ctx context.Context, l Link) error {
+	status := l.Status
+	if status == "" {
+		status = "unknown"
+	}
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO links (id, tenant_id, device_id, name, kind, isp, role, target, status, latency_ms, jitter_ms, loss, score)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		l.ID, nullable(l.TenantID), l.DeviceID, l.Name, l.Kind, l.ISP, l.Role, l.Target,
+		status, l.LatencyMs, l.JitterMs, l.Loss, l.Score)
+	return mapPgError(err)
+}
+
+func (r *pgLinkRepo) scan(rows pgx.Rows) ([]*Link, error) {
+	defer rows.Close()
+	var out []*Link
+	for rows.Next() {
+		var l Link
+		if err := rows.Scan(&l.ID, &l.TenantID, &l.DeviceID, &l.Name, &l.Kind, &l.ISP, &l.Role, &l.Target,
+			&l.Status, &l.LatencyMs, &l.JitterMs, &l.Loss, &l.Score, &l.MeasuredAt, &l.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, &l)
+	}
+	return out, rows.Err()
+}
+
+const linkCols = `id, coalesce(tenant_id,''), device_id, name, kind, isp, role, target, status, latency_ms, jitter_ms, loss, score, measured_at, created_at`
+
+func (r *pgLinkRepo) List(ctx context.Context, tenantID string) ([]*Link, error) {
+	var rows pgx.Rows
+	var err error
+	if tenantID == "" {
+		rows, err = r.pool.Query(ctx, `SELECT `+linkCols+` FROM links ORDER BY score DESC`)
+	} else {
+		rows, err = r.pool.Query(ctx, `SELECT `+linkCols+` FROM links WHERE tenant_id IS NULL OR tenant_id=$1 ORDER BY score DESC`, tenantID)
+	}
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	return r.scan(rows)
+}
+
+func (r *pgLinkRepo) ListAll(ctx context.Context) ([]*Link, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+linkCols+` FROM links`)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	return r.scan(rows)
+}
+
+func (r *pgLinkRepo) Get(ctx context.Context, id string) (*Link, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+linkCols+` FROM links WHERE id=$1`, id)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	list, err := r.scan(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(list) == 0 {
+		return nil, ErrNotFound
+	}
+	return list[0], nil
+}
+
+func (r *pgLinkRepo) Delete(ctx context.Context, tenantID, id string) error {
+	q := `DELETE FROM links WHERE id=$1`
+	args := []any{id}
+	if tenantID != "" {
+		q += ` AND (tenant_id IS NULL OR tenant_id=$2)`
+		args = append(args, tenantID)
+	}
+	ct, err := r.pool.Exec(ctx, q, args...)
+	if err != nil {
+		return mapPgError(err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *pgLinkRepo) UpdateMeasurement(ctx context.Context, id, status string, latencyMs, jitterMs, loss, score float64, at time.Time) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE links SET status=$2, latency_ms=$3, jitter_ms=$4, loss=$5, score=$6, measured_at=$7 WHERE id=$1`,
+		id, status, latencyMs, jitterMs, loss, score, at)
+	return mapPgError(err)
+}
 
 type pgDNSRepo struct{ pool *pgxpool.Pool }
 

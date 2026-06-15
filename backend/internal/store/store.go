@@ -104,6 +104,17 @@ type DNSRepository interface {
 	Delete(ctx context.Context, tenantID, id string) error
 }
 
+// LinkRepository persists monitored links and their latest quality snapshot.
+type LinkRepository interface {
+	Create(ctx context.Context, l Link) error
+	List(ctx context.Context, tenantID string) ([]*Link, error)
+	ListAll(ctx context.Context) ([]*Link, error)
+	Get(ctx context.Context, id string) (*Link, error)
+	Delete(ctx context.Context, tenantID, id string) error
+	// UpdateMeasurement stores the latest measured quality for a link.
+	UpdateMeasurement(ctx context.Context, id, status string, latencyMs, jitterMs, loss, score float64, at time.Time) error
+}
+
 // Store aggregates all repositories.
 type Store interface {
 	Tenants() TenantRepository
@@ -113,4 +124,5 @@ type Store interface {
 	Snapshots() ConfigSnapshotRepository
 	Sessions() SessionRepository
 	Dns() DNSRepository
+	Links() LinkRepository
 }

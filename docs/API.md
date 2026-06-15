@@ -46,6 +46,10 @@
 | POST | `/api/v1/devices/{id}/orchestrate` | 站点编排：链路选择(failover/ECMP)+加速 合成配置，`dry_run` 预览或一键下发 |
 | GET | `/api/v1/accel/modes` | 加速业务模式列表（含海外直连 overseas_direct） |
 | POST | `/api/v1/accel/preview` | 生成加速模式对应的 RouterOS 配置预览 |
+| GET | `/api/v1/links` | 监控链路列表（设备实测的延迟/抖动/丢包/评分） |
+| POST | `/api/v1/links` | 新增监控链路 `{device_id, name, kind, isp, role, target}` |
+| DELETE | `/api/v1/links/{id}` | 删除监控链路 |
+| POST | `/api/v1/links/{id}/probe` | 即时探测：从设备 Ping 目标并更新质量 |
 | GET | `/api/v1/config/sections` | 平台全功能管理的 RouterOS 配置段目录 |
 | GET | `/api/v1/config/catalog` | 按 WebFig 菜单分组的全部可远程配置段（菜单树） |
 | GET | `/api/v1/devices/{id}/rest?path=/ip/address` | 远程读取任意 RouterOS 配置段（用托管凭据，免登录） |

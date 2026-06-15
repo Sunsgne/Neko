@@ -62,6 +62,13 @@
 - [x] T11.3 routeros.Client.RunScript：上千条路由打包为单脚本一次性安装+执行（免登录、免逐条 REST）
 - [x] T11.4 API + 前端「站点编排」国内外分流模式：状态/刷新/预览脚本/一键下发
 
+## Epic 13 — 真实链路质量监控（设备实测）
+- [x] T13.1 链路模型 + 仓储（memory+pg，迁移 0010）：绑定设备 + 探测目标
+- [x] T13.2 routeros.Client.Ping（设备 /ping）+ linkqos.Aggregate/Status
+- [x] T13.3 inventory.MeasureLink + Worker 60s 探测循环 + 即时探测 API
+- [x] T13.4 API GET/POST/DELETE /links + /probe；种子改持久化
+- [x] T13.5 前端「链路质量」可管理（添加/删除/即时探测）+ 实测展示；rosim /ping
+
 ## Epic 12 — 全功能远程配置（所有 RouterOS 菜单）
 - [x] T12.1 routeros.Catalog：WebFig 全菜单配置段目录 + ValidPath 校验
 - [x] T12.2 inventory.REST{List,Create,Update,Delete,Set} + Client.Set：用托管凭据免登录读写任意段

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,6 +116,77 @@ func (c *Client) Update(ctx context.Context, path, id string, attrs map[string]s
 func (c *Client) Set(ctx context.Context, path string, attrs map[string]string) error {
 	_, _, err := c.do(ctx, http.MethodPost, path+"/set", attrs)
 	return err
+}
+
+// Ping runs the device's own ping tool toward address (optionally egressing a
+// specific interface) and returns the per-reply round-trip times in
+// milliseconds plus the number of probes sent. This measures the link quality
+// FROM the device — the accurate vantage for SD-WAN uplink/overlay monitoring.
+func (c *Client) Ping(ctx context.Context, address string, count int, iface string) (rttsMs []float64, sent int, err error) {
+	if count <= 0 {
+		count = 5
+	}
+	body := map[string]string{"address": address, "count": strconv.Itoa(count)}
+	if iface != "" {
+		body["interface"] = iface
+	}
+	data, _, err := c.do(ctx, http.MethodPost, "/ping", body)
+	if err != nil {
+		return nil, count, err
+	}
+	var items []map[string]any
+	if e := json.Unmarshal(data, &items); e != nil {
+		return nil, count, e
+	}
+	for _, it := range items {
+		if t, ok := parseMillis(str(it["time"])); ok {
+			rttsMs = append(rttsMs, t)
+		}
+	}
+	return rttsMs, count, nil
+}
+
+// parseMillis converts a RouterOS duration string (e.g. "12ms", "1ms200us",
+// "300us", or a bare number treated as ms) into milliseconds.
+func parseMillis(s string) (float64, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, false
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f, true
+	}
+	var total float64
+	matched := false
+	i := 0
+	for i < len(s) {
+		start := i
+		for i < len(s) && (s[i] == '.' || (s[i] >= '0' && s[i] <= '9')) {
+			i++
+		}
+		numStr := s[start:i]
+		us := i
+		for i < len(s) && s[i] >= 'a' && s[i] <= 'z' {
+			i++
+		}
+		unit := s[us:i]
+		if numStr == "" {
+			break
+		}
+		v, _ := strconv.ParseFloat(numStr, 64)
+		switch unit {
+		case "us":
+			total += v / 1000
+		case "ns":
+			total += v / 1e6
+		case "s":
+			total += v * 1000
+		default: // ms or unknown
+			total += v
+		}
+		matched = true
+	}
+	return total, matched
 }
 
 // Delete removes an item by RouterOS .id (DELETE /rest/<path>/<id>).

@@ -106,15 +106,18 @@ export interface AccelPreview {
 export interface Link {
   id: string;
   tenant_id: string;
+  device_id?: string;
   name: string;
   kind: "wan" | "overlay";
   isp: string;
   role: "primary" | "backup";
+  target?: string;
   status: string;
   latency_ms: number;
   jitter_ms: number;
   loss: number;
   score: number;
+  measured_at?: string | null;
 }
 
 export interface Alert {
@@ -488,6 +491,23 @@ export async function listAudit(token?: string): Promise<AuditEntry[]> {
 export async function listLinks(token?: string): Promise<Link[]> {
   const env = await request<Link[]>("GET", "/api/v1/links", { token });
   return env.data ?? [];
+}
+
+export async function createLink(
+  body: { device_id: string; name: string; kind: string; isp: string; role: string; target: string },
+  token?: string,
+): Promise<Link> {
+  const env = await request<Link>("POST", "/api/v1/links", { token, body });
+  return env.data;
+}
+
+export async function deleteLink(id: string, token?: string): Promise<void> {
+  await request("DELETE", `/api/v1/links/${id}`, { token });
+}
+
+export async function probeLink(id: string, token?: string): Promise<{ link: Link; error?: string }> {
+  const env = await request<{ link: Link; error?: string }>("POST", `/api/v1/links/${id}/probe`, { token });
+  return env.data;
 }
 
 export async function listAlerts(token?: string): Promise<Alert[]> {

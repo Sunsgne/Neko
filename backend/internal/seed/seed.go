@@ -84,13 +84,24 @@ func Demo(ctx context.Context, st store.Store, cat *catalog.Catalog) error {
 		_ = st.Devices().Create(ctx, &devices[i])
 	}
 
-	cat.ReplaceLinks([]catalog.Link{
-		{ID: "lnk_sh_tel", TenantID: "ten_acme", Name: "上海-电信", Kind: "wan", ISP: "telecom", Role: "primary", Status: "up", LatencyMs: 8, JitterMs: 2, Loss: 0, Score: 98},
-		{ID: "lnk_sh_uni", TenantID: "ten_acme", Name: "上海-联通", Kind: "wan", ISP: "unicom", Role: "backup", Status: "up", LatencyMs: 14, JitterMs: 4, Loss: 0.002, Score: 92},
-		{ID: "lnk_bj_mob", TenantID: "ten_acme", Name: "北京-移动", Kind: "wan", ISP: "mobile", Role: "primary", Status: "degraded", LatencyMs: 46, JitterMs: 18, Loss: 0.012, Score: 71},
-		{ID: "lnk_gz_tel", TenantID: "ten_globex", Name: "广州-电信", Kind: "wan", ISP: "telecom", Role: "primary", Status: "down", LatencyMs: 220, JitterMs: 80, Loss: 0.045, Score: 38},
-		{ID: "lnk_ov_shbj", TenantID: "ten_acme", Name: "Overlay 上海↔北京", Kind: "overlay", ISP: "", Role: "primary", Status: "up", LatencyMs: 11, JitterMs: 3, Loss: 0, Score: 96},
-	})
+	// Persisted, device-bound links. The worker (postgres mode) re-measures
+	// these by pinging Target from the device; the seeded measurement gives the
+	// console real-shaped data immediately in demo/memory mode.
+	type seedLink struct {
+		l                     store.Link
+		lat, jit, loss, score float64
+		status                string
+	}
+	for _, s := range []seedLink{
+		{store.Link{ID: "lnk_sh_tel", TenantID: "ten_acme", DeviceID: "dev_sh01", Name: "上海-电信", Kind: "wan", ISP: "telecom", Role: "primary", Target: "202.96.209.133"}, 8, 2, 0, 98, "up"},
+		{store.Link{ID: "lnk_sh_uni", TenantID: "ten_acme", DeviceID: "dev_sh01", Name: "上海-联通", Kind: "wan", ISP: "unicom", Role: "backup", Target: "123.123.123.123"}, 14, 4, 0.002, 92, "up"},
+		{store.Link{ID: "lnk_bj_mob", TenantID: "ten_acme", DeviceID: "dev_bj02", Name: "北京-移动", Kind: "wan", ISP: "mobile", Role: "primary", Target: "211.136.192.6"}, 46, 18, 0.012, 71, "degraded"},
+		{store.Link{ID: "lnk_gz_tel", TenantID: "ten_globex", DeviceID: "dev_gzcore", Name: "广州-电信", Kind: "wan", ISP: "telecom", Role: "primary", Target: "8.8.8.8"}, 220, 80, 0.45, 38, "down"},
+		{store.Link{ID: "lnk_ov_shbj", TenantID: "ten_acme", DeviceID: "dev_popsh", Name: "Overlay 上海↔北京", Kind: "overlay", ISP: "overlay", Role: "primary", Target: "100.64.0.2"}, 11, 3, 0, 96, "up"},
+	} {
+		_ = st.Links().Create(ctx, s.l)
+		_ = st.Links().UpdateMeasurement(ctx, s.l.ID, s.status, s.lat, s.jit, s.loss, s.score, seen)
+	}
 
 	// Seed persisted alerts (the live source after monitoring runs).
 	for _, a := range []store.Alert{

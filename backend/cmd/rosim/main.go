@@ -18,6 +18,7 @@ import (
 	mrand "math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -54,6 +55,24 @@ func newSim() *sim {
 		{".id": "*1", "address": "10.0.0.1/24", "interface": "ether1"},
 	}
 	return s
+}
+
+func str(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func hashByte(s string) int {
+	h := 0
+	for i := 0; i < len(s); i++ {
+		h = (h*31 + int(s[i])) & 0x7fffffff
+	}
+	return h
 }
 
 func env(k, d string) string {
@@ -109,6 +128,33 @@ func (s *sim) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ping tool: POST /ping {address,count} → synthetic per-reply RTTs so the
+	// platform's link-quality probing works end to end.
+	if r.Method == http.MethodPost && path == "/ping" {
+		var req map[string]any
+		json.NewDecoder(r.Body).Decode(&req)
+		count := 5
+		if c, err := strconv.Atoi(str(req["count"])); err == nil && c > 0 {
+			count = c
+		}
+		addr := str(req["address"])
+		base := 4 + hashByte(addr)%40 // 4..43ms base latency, stable per target
+		var replies []item
+		for i := 0; i < count; i++ {
+			// ~8% synthetic loss to exercise jitter/loss/scoring.
+			if mrand.Intn(100) < 8 {
+				replies = append(replies, item{"seq": strconv.Itoa(i), "host": addr, "status": "timeout"})
+				continue
+			}
+			rtt := base + mrand.Intn(6)
+			replies = append(replies, item{
+				"seq": strconv.Itoa(i), "host": addr, "size": "56", "ttl": "58",
+				"time": fmt.Sprintf("%dms", rtt),
+			})
+		}
+		json.NewEncoder(w).Encode(replies)
+		return
+	}
 	// Command endpoints (e.g. /system/script/run) are POSTed and just return
 	// 200 — like running a script on a real box.
 	if r.Method == http.MethodPost && strings.HasSuffix(path, "/run") {

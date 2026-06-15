@@ -18,6 +18,7 @@ type MemoryStore struct {
 	snaps   *memSnapshotRepo
 	sess    *memSessionRepo
 	dns     *memDNSRepo
+	links   *memLinkRepo
 }
 
 // NewMemory builds a ready-to-use in-memory store.
@@ -30,6 +31,7 @@ func NewMemory() *MemoryStore {
 		snaps:   &memSnapshotRepo{items: map[string]*ConfigSnapshot{}},
 		sess:    &memSessionRepo{items: map[string]SessionRecord{}},
 		dns:     &memDNSRepo{items: map[string]*DNSServer{}},
+		links:   &memLinkRepo{items: map[string]*Link{}},
 	}
 }
 
@@ -40,6 +42,84 @@ func (m *MemoryStore) Alerts() AlertRepository             { return m.alerts }
 func (m *MemoryStore) Snapshots() ConfigSnapshotRepository { return m.snaps }
 func (m *MemoryStore) Sessions() SessionRepository         { return m.sess }
 func (m *MemoryStore) Dns() DNSRepository                  { return m.dns }
+func (m *MemoryStore) Links() LinkRepository               { return m.links }
+
+type memLinkRepo struct {
+	mu    sync.RWMutex
+	items map[string]*Link
+}
+
+func (r *memLinkRepo) Create(_ context.Context, l Link) error {
+	r.mu.Lock()
+	cp := l
+	r.items[l.ID] = &cp
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *memLinkRepo) List(_ context.Context, tenantID string) ([]*Link, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*Link, 0, len(r.items))
+	for _, l := range r.items {
+		if tenantID == "" || l.TenantID == "" || l.TenantID == tenantID {
+			cp := *l
+			out = append(out, &cp)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
+	return out, nil
+}
+
+func (r *memLinkRepo) ListAll(_ context.Context) ([]*Link, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*Link, 0, len(r.items))
+	for _, l := range r.items {
+		cp := *l
+		out = append(out, &cp)
+	}
+	return out, nil
+}
+
+func (r *memLinkRepo) Get(_ context.Context, id string) (*Link, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	l, ok := r.items[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	cp := *l
+	return &cp, nil
+}
+
+func (r *memLinkRepo) Delete(_ context.Context, tenantID, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	l, ok := r.items[id]
+	if !ok || (tenantID != "" && l.TenantID != "" && l.TenantID != tenantID) {
+		return ErrNotFound
+	}
+	delete(r.items, id)
+	return nil
+}
+
+func (r *memLinkRepo) UpdateMeasurement(_ context.Context, id, status string, latencyMs, jitterMs, loss, score float64, at time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	l, ok := r.items[id]
+	if !ok {
+		return ErrNotFound
+	}
+	l.Status = status
+	l.LatencyMs = latencyMs
+	l.JitterMs = jitterMs
+	l.Loss = loss
+	l.Score = score
+	t := at
+	l.MeasuredAt = &t
+	return nil
+}
 
 type memDNSRepo struct {
 	mu    sync.RWMutex

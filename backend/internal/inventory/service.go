@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/neko/sdwan/backend/internal/configengine"
+	"github.com/neko/sdwan/backend/internal/linkqos"
 	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/secret"
 	"github.com/neko/sdwan/backend/internal/store"
@@ -373,6 +374,30 @@ func (s *Service) RESTCreate(ctx context.Context, tenantID, id, path string, att
 		return err
 	}
 	return c.Create(ctx, path, attrs)
+}
+
+// LinkMeasurement is the result of probing a link from the device.
+type LinkMeasurement struct {
+	Metrics linkqos.Metrics `json:"metrics"`
+	Score   float64         `json:"score"`
+	Status  string          `json:"status"`
+}
+
+// MeasureLink pings target from the device (using its stored credentials) and
+// returns the aggregated quality metrics, score and status. This is the real
+// measurement that replaces demo link data.
+func (s *Service) MeasureLink(ctx context.Context, tenantID, deviceID, target, iface string, count int) (LinkMeasurement, error) {
+	c, _, err := s.configClient(ctx, tenantID, deviceID, "", "")
+	if err != nil {
+		return LinkMeasurement{}, err
+	}
+	rtts, sent, err := c.Ping(ctx, target, count, iface)
+	if err != nil {
+		return LinkMeasurement{}, err
+	}
+	m := linkqos.Aggregate(rtts, sent)
+	score := linkqos.Score(m, linkqos.DefaultScoreConfig())
+	return LinkMeasurement{Metrics: m, Score: score, Status: linkqos.Status(score, m.Loss)}, nil
 }
 
 // RESTSet updates a singleton settings resource (e.g. /ip/dns) at a path.

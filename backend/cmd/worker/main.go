@@ -75,18 +75,57 @@ func main() {
 	defer snapTicker.Stop()
 	logger.Info("config snapshot/drift loop running", "interval", snapInterval.String())
 
+	// Link quality probing (active ping from the device to each link target).
+	linkInterval := 60 * time.Second
+	linkTicker := time.NewTicker(linkInterval)
+	defer linkTicker.Stop()
+	logger.Info("link quality probe loop running", "interval", linkInterval.String())
+
 	pollAll(context.Background(), logger, svc, pg, vm, notifier)
 	snapshotAll(context.Background(), logger, svc, pg)
+	probeLinks(context.Background(), logger, svc, pg)
 	for {
 		select {
 		case <-ticker.C:
 			pollAll(context.Background(), logger, svc, pg, vm, notifier)
 		case <-snapTicker.C:
 			snapshotAll(context.Background(), logger, svc, pg)
+		case <-linkTicker.C:
+			probeLinks(context.Background(), logger, svc, pg)
 		case <-stop:
 			logger.Info("worker stopped")
 			return
 		}
+	}
+}
+
+// probeLinks measures every registered link by pinging its target FROM the
+// owning device (using stored credentials) and persists the latest quality.
+func probeLinks(ctx context.Context, logger interface {
+	Info(string, ...any)
+	Warn(string, ...any)
+}, svc *inventory.Service, pg *store.PostgresStore) {
+	links, err := pg.Links().ListAll(ctx)
+	if err != nil {
+		return
+	}
+	now := time.Now().UTC()
+	var measured, down int
+	for _, l := range links {
+		m, err := svc.MeasureLink(ctx, "", l.DeviceID, l.Target, "", 5)
+		if err != nil {
+			_ = pg.Links().UpdateMeasurement(ctx, l.ID, "down", 0, 0, 1, 0, now)
+			down++
+			continue
+		}
+		_ = pg.Links().UpdateMeasurement(ctx, l.ID, m.Status, m.Metrics.LatencyMs, m.Metrics.JitterMs, m.Metrics.Loss, m.Score, now)
+		measured++
+		if m.Status == "down" {
+			down++
+		}
+	}
+	if len(links) > 0 {
+		logger.Info("link probe cycle", "links", len(links), "measured", measured, "down", down)
 	}
 }
 

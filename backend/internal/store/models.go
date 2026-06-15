@@ -94,6 +94,27 @@ type DNSServer struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// Link is a monitored WAN/overlay path on a device. The platform actively
+// measures it (by pinging Target from the device) and stores the latest
+// latency/jitter/loss/score so the console shows real quality, not demo data.
+type Link struct {
+	ID         string     `json:"id"`
+	TenantID   string     `json:"tenant_id"`
+	DeviceID   string     `json:"device_id"`
+	Name       string     `json:"name"`
+	Kind       string     `json:"kind"`   // wan | overlay
+	ISP        string     `json:"isp"`    // telecom | unicom | mobile | edu | overlay
+	Role       string     `json:"role"`   // primary | backup
+	Target     string     `json:"target"` // host/IP probed from the device
+	Status     string     `json:"status"` // up | degraded | down | unknown
+	LatencyMs  float64    `json:"latency_ms"`
+	JitterMs   float64    `json:"jitter_ms"`
+	Loss       float64    `json:"loss"` // 0..1
+	Score      float64    `json:"score"`
+	MeasuredAt *time.Time `json:"measured_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
 // SessionRecord is a persisted login session (survives API restarts).
 type SessionRecord struct {
 	Token      string

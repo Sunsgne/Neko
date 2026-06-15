@@ -5,6 +5,13 @@
 ## [Unreleased]
 
 ### Added
+- **真实链路质量监控(real link-quality monitoring)**：替换原「链路质量」页的演示数据为**设备实测**。
+  - 链路模型 + 仓储(memory+pg,迁移 0010 `links` 表)：每条链路绑定设备与探测目标(target)。
+  - `routeros.Client.Ping`：调用设备自身 ping 工具(REST `POST /ping`)从**设备视角**测目标延迟；`linkqos.Aggregate`(延迟/抖动/丢包)+`Status`(up/degraded/down)+ 既有 `Score`。
+  - `inventory.MeasureLink`：用托管凭据免登录从设备实测；Worker 每 60s 探测所有链路并落库;API 提供即时探测 `POST /links/{id}/probe`。
+  - API：`GET/POST/DELETE /links` + `POST /links/{id}/probe`(全审计);种子链路改为持久化、绑定设备。
+  - 前端「链路质量」改为可管理：添加链路(选设备+目标)、删除、单条/全部「立即探测」,展示实测评分/延迟/抖动/丢包/最近探测时间。
+  - 模拟器 `rosim` 支持 `/ping`(合成 RTT/丢包);已端到端验证 创建→探测(实测 latency/jitter/loss/score/status)→删除。
 - **全功能远程配置(remote configuration of every RouterOS menu)**:
   - `routeros.Catalog`:按 WebFig 菜单分组的配置段目录(Interfaces/WiFi/Wireless/WireGuard/PPP/Bridge/Switch/Mesh/IP/IPv6/MPLS/Routing/System/Queues/Dot1X/RADIUS/SNMP/Tools),覆盖全部菜单;`routeros.ValidPath` 校验任意 RouterOS 资源路径(防注入/穿越)。
   - `routeros.Client.Set`:单例设置走 `POST /<path>/set`(如 /ip/dns、/system/identity);`inventory.REST{List,Create,Update,Delete,Set}`:用托管设备的**保存凭据免登录**远程读写任意配置段。

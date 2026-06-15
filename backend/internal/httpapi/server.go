@@ -29,6 +29,7 @@ type Server struct {
 	audit     audit.Recorder
 	alerts    store.AlertRepository
 	dns       store.DNSRepository
+	links     store.LinkRepository
 	vm        *vmetrics.Client
 	idgen     func(string) string
 	metrics   *metrics.Registry
@@ -49,6 +50,7 @@ type Deps struct {
 	Audit     audit.Recorder
 	Alerts    store.AlertRepository
 	Dns       store.DNSRepository
+	Links     store.LinkRepository
 	VM        *vmetrics.Client
 	IDGen     func(string) string
 	Metrics   *metrics.Registry
@@ -73,6 +75,7 @@ func New(d Deps) *Server {
 		audit:     d.Audit,
 		alerts:    d.Alerts,
 		dns:       d.Dns,
+		links:     d.Links,
 		vm:        d.VM,
 		idgen:     d.IDGen,
 		metrics:   m,
@@ -163,6 +166,9 @@ func (s *Server) Handler() http.Handler {
 
 	// Monitoring read models.
 	mux.HandleFunc("GET /api/v1/links", s.handleListLinks)
+	mux.HandleFunc("POST /api/v1/links", s.handleCreateLink)
+	mux.HandleFunc("DELETE /api/v1/links/{id}", s.handleDeleteLink)
+	mux.HandleFunc("POST /api/v1/links/{id}/probe", s.handleProbeLink)
 	mux.HandleFunc("GET /api/v1/alerts", s.handleListAlerts)
 	mux.HandleFunc("GET /api/v1/dns/servers", s.handleListDNSServers)
 	mux.HandleFunc("POST /api/v1/dns/servers", s.handleCreateDNSServer)
