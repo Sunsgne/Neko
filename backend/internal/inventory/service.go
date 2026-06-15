@@ -337,6 +337,71 @@ func (s *Service) targetForDevice(ctx context.Context, d *store.Device) (routero
 	return routeros.Target{Address: d.MgmtAddress, Username: sc.Username, Secret: sc.Password}, nil
 }
 
+// configClient returns a RouterOS REST client for a device. When user is empty
+// it uses the device's stored (enrolled) credentials, enabling remote
+// configuration of ANY section without anyone logging into the device.
+func (s *Service) configClient(ctx context.Context, tenantID, id, user, pass string) (*routeros.Client, *store.Device, error) {
+	d, err := s.repo.Get(ctx, tenantID, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	var target routeros.Target
+	if strings.TrimSpace(user) != "" {
+		target = routeros.Target{Address: d.MgmtAddress, Username: user, Secret: pass}
+	} else {
+		target, err = s.targetForDevice(ctx, d)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return routeros.NewClient(target), d, nil
+}
+
+// RESTList lists all items at an arbitrary RouterOS config path.
+func (s *Service) RESTList(ctx context.Context, tenantID, id, path, user, pass string) ([]map[string]any, error) {
+	c, _, err := s.configClient(ctx, tenantID, id, user, pass)
+	if err != nil {
+		return nil, err
+	}
+	return c.List(ctx, path)
+}
+
+// RESTCreate adds a new item at an arbitrary RouterOS config path.
+func (s *Service) RESTCreate(ctx context.Context, tenantID, id, path string, attrs map[string]string, user, pass string) error {
+	c, _, err := s.configClient(ctx, tenantID, id, user, pass)
+	if err != nil {
+		return err
+	}
+	return c.Create(ctx, path, attrs)
+}
+
+// RESTSet updates a singleton settings resource (e.g. /ip/dns) at a path.
+func (s *Service) RESTSet(ctx context.Context, tenantID, id, path string, attrs map[string]string, user, pass string) error {
+	c, _, err := s.configClient(ctx, tenantID, id, user, pass)
+	if err != nil {
+		return err
+	}
+	return c.Set(ctx, path, attrs)
+}
+
+// RESTUpdate modifies an existing item (by RouterOS .id) at a config path.
+func (s *Service) RESTUpdate(ctx context.Context, tenantID, id, path, itemID string, attrs map[string]string, user, pass string) error {
+	c, _, err := s.configClient(ctx, tenantID, id, user, pass)
+	if err != nil {
+		return err
+	}
+	return c.Update(ctx, path, itemID, attrs)
+}
+
+// RESTDelete removes an item (by RouterOS .id) at a config path.
+func (s *Service) RESTDelete(ctx context.Context, tenantID, id, path, itemID, user, pass string) error {
+	c, _, err := s.configClient(ctx, tenantID, id, user, pass)
+	if err != nil {
+		return err
+	}
+	return c.Delete(ctx, path, itemID)
+}
+
 // SnapshotConfig reads the device's running configuration over REST and stores
 // it as a backup snapshot. Returns the stored snapshot and the captured state.
 func (s *Service) SnapshotConfig(ctx context.Context, tenantID, id, source string) (*store.ConfigSnapshot, configengine.State, error) {

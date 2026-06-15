@@ -116,6 +116,25 @@ func (s *sim) handle(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(item{"ret": "ok"})
 		return
 	}
+	// Singleton settings "set" command (e.g. POST /ip/dns/set): merge attrs
+	// into the singleton object so a subsequent GET returns them.
+	if r.Method == http.MethodPost && strings.HasSuffix(path, "/set") {
+		sec := strings.TrimSuffix(path, "/set")
+		var attrs item
+		json.NewDecoder(r.Body).Decode(&attrs)
+		s.mu.Lock()
+		cur := item{}
+		if len(s.sections[sec]) == 1 {
+			cur = s.sections[sec][0]
+		}
+		for k, v := range attrs {
+			cur[k] = v
+		}
+		s.sections[sec] = []item{cur}
+		s.mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	// Generic config-section CRUD.
 	s.mu.Lock()

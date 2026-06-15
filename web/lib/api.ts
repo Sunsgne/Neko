@@ -252,6 +252,49 @@ export async function listConfigSections(token?: string): Promise<string[]> {
   return env.data ?? [];
 }
 
+export interface ConfigSection {
+  path: string;
+  label: string;
+  singleton?: boolean;
+}
+export interface ConfigSectionGroup {
+  menu: string;
+  sections: ConfigSection[];
+}
+
+export async function getConfigCatalog(token?: string): Promise<ConfigSectionGroup[]> {
+  const env = await request<ConfigSectionGroup[]>("GET", "/api/v1/config/catalog", { token });
+  return env.data ?? [];
+}
+
+export type RestItem = Record<string, unknown>;
+
+export async function restList(deviceId: string, path: string, token?: string): Promise<{ path: string; items: RestItem[] }> {
+  const env = await request<{ path: string; items: RestItem[] }>(
+    "GET", `/api/v1/devices/${deviceId}/rest?path=${encodeURIComponent(path)}`, { token });
+  return env.data ?? { path, items: [] };
+}
+
+export async function restCreate(
+  deviceId: string,
+  body: { path: string; attributes: Record<string, string>; singleton?: boolean; username?: string; password?: string },
+  token?: string,
+): Promise<void> {
+  await request("POST", `/api/v1/devices/${deviceId}/rest`, { token, body });
+}
+
+export async function restUpdate(
+  deviceId: string,
+  body: { path: string; item_id: string; attributes: Record<string, string>; username?: string; password?: string },
+  token?: string,
+): Promise<void> {
+  await request("PATCH", `/api/v1/devices/${deviceId}/rest`, { token, body });
+}
+
+export async function restDelete(deviceId: string, path: string, itemId: string, token?: string): Promise<void> {
+  await request("DELETE", `/api/v1/devices/${deviceId}/rest?path=${encodeURIComponent(path)}&item_id=${encodeURIComponent(itemId)}`, { token });
+}
+
 export interface SystemInfo {
   version: string;
   store: string;

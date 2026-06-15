@@ -110,6 +110,13 @@ func (c *Client) Update(ctx context.Context, path, id string, attrs map[string]s
 	return err
 }
 
+// Set updates a singleton settings resource (e.g. /ip/dns, /system/identity)
+// via the RouterOS "set" command: POST /rest/<path>/set.
+func (c *Client) Set(ctx context.Context, path string, attrs map[string]string) error {
+	_, _, err := c.do(ctx, http.MethodPost, path+"/set", attrs)
+	return err
+}
+
 // Delete removes an item by RouterOS .id (DELETE /rest/<path>/<id>).
 func (c *Client) Delete(ctx context.Context, path, id string) error {
 	_, _, err := c.do(ctx, http.MethodDelete, path+"/"+id, nil)

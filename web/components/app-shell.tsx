@@ -20,6 +20,7 @@ import {
   Workflow,
   Radar,
   ScrollText,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { logout, API_BASE_URL } from "@/lib/api";
@@ -31,6 +32,7 @@ const nav = [
   { href: "/discover", label: "发现纳管", icon: Radar },
   { href: "/backbone", label: "骨干节点", icon: Server },
   { href: "/orchestrate", label: "编排下发", icon: Workflow },
+  { href: "/config", label: "远程配置", icon: SlidersHorizontal },
   { href: "/accel", label: "加速", icon: Rocket },
   { href: "/tenants", label: "租户", icon: Building2 },
   { href: "/topology", label: "拓扑", icon: Network },

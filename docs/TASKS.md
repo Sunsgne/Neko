@@ -62,6 +62,13 @@
 - [x] T11.3 routeros.Client.RunScript：上千条路由打包为单脚本一次性安装+执行（免登录、免逐条 REST）
 - [x] T11.4 API + 前端「站点编排」国内外分流模式：状态/刷新/预览脚本/一键下发
 
+## Epic 12 — 全功能远程配置（所有 RouterOS 菜单）
+- [x] T12.1 routeros.Catalog：WebFig 全菜单配置段目录 + ValidPath 校验
+- [x] T12.2 inventory.REST{List,Create,Update,Delete,Set} + Client.Set：用托管凭据免登录读写任意段
+- [x] T12.3 API：GET /config/catalog + GET/POST/PATCH/DELETE /devices/{id}/rest（含 singleton set，审计）
+- [x] T12.4 前端「远程配置」页：菜单树 + 配置项表格 + 通用键值表单（新增/编辑/删除/单例设置）
+- [x] T12.5 rosim 支持 /set；端到端验证多菜单 CRUD + 单例 set
+
 ## Epic 8 — 链路质量监控、上报与切换
 - [x] T8.1 探测引擎（probe 包：ICMP/TCP/HTTP/HTTPS/DNS，Run 聚合延迟/丢包/抖动）
 - [x] T8.2 链路评分（ScoreResult）+ 上报通道（VictoriaMetricsReporter，Influx line-protocol → /write）

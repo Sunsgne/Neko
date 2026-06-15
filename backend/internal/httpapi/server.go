@@ -132,6 +132,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/devices/{id}/drift", s.handleDrift)
 	mux.HandleFunc("GET /api/v1/devices/{id}/config", s.handleSnapshotConfig)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/config", s.handlePushConfig)
+	// Generic remote configuration of ANY RouterOS section (uses stored creds).
+	mux.HandleFunc("GET /api/v1/devices/{id}/rest", s.handleRESTList)
+	mux.HandleFunc("POST /api/v1/devices/{id}/rest", s.handleRESTCreate)
+	mux.HandleFunc("PATCH /api/v1/devices/{id}/rest", s.handleRESTUpdate)
+	mux.HandleFunc("DELETE /api/v1/devices/{id}/rest", s.handleRESTDelete)
 	// Unified orchestration: link selection + acceleration → preview/deliver.
 	mux.HandleFunc("POST /api/v1/devices/{id}/orchestrate", s.handleOrchestrate)
 
@@ -139,6 +144,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/accel/modes", s.handleAccelModes)
 	mux.HandleFunc("POST /api/v1/accel/preview", s.handleAccelPreview)
 	mux.HandleFunc("GET /api/v1/config/sections", s.handleConfigSections)
+	mux.HandleFunc("GET /api/v1/config/catalog", s.handleConfigCatalog)
 
 	// 国内外加速 (chnroutes route-table split): China prefix table + delivery.
 	mux.HandleFunc("GET /api/v1/chnroutes", s.handleChnroutesStatus)
