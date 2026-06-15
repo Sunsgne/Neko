@@ -63,3 +63,34 @@ func TestRefreshEmptyErrors(t *testing.T) {
 		t.Error("empty prefix list should error")
 	}
 }
+
+func TestRefreshFallback(t *testing.T) {
+	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "nope", http.StatusBadGateway)
+	}))
+	defer fail.Close()
+	ok := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("1.0.1.0/24\n"))
+	}))
+	defer ok.Close()
+
+	c := NewCacheWithSources([]string{fail.URL, ok.URL})
+	st, err := c.Refresh(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.URL != ok.URL || st.Count != 1 {
+		t.Fatalf("unexpected status: %+v", st)
+	}
+}
+
+func TestRefreshAllSourcesFail(t *testing.T) {
+	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "nope", http.StatusBadGateway)
+	}))
+	defer fail.Close()
+	c := NewCacheWithSources([]string{fail.URL})
+	if _, err := c.Refresh(context.Background(), ""); err == nil {
+		t.Fatal("expected error when all sources fail")
+	}
+}

@@ -62,8 +62,8 @@
 | POST | `/api/v1/devices/{id}/rest` | 远程新增配置项 `{path, attributes}`；`singleton:true` 走 set（如 /ip/dns） |
 | PATCH | `/api/v1/devices/{id}/rest` | 远程修改配置项 `{path, item_id, attributes}` |
 | DELETE | `/api/v1/devices/{id}/rest?path=&item_id=` | 远程删除配置项 |
-| GET | `/api/v1/chnroutes` | 国内路由表(chnroutes2)缓存状态（条数/来源/更新时间） |
-| POST | `/api/v1/chnroutes/refresh` | 刷新国内路由表，可选 `{url}`，默认 chnroutes2 |
+| GET | `/api/v1/chnroutes` | 国内路由表(chnroutes2)缓存状态（条数/来源/更新时间；`sources` 为候选 URL 列表） |
+| POST | `/api/v1/chnroutes/refresh` | 刷新国内路由表，可选 `{url}`；未指定时按顺序尝试 jsdelivr → ghproxy → GitHub raw，可通过 `NEKO_CHNROUTES_URL` / `NEKO_CHNROUTES_URLS` 覆盖 |
 | POST | `/api/v1/devices/{id}/accel/china-split` | 国内外分流下发：国内走路由表本地直连，海外 0.0.0.0/1+128.0.0.0/1 走隧道。`dry_run` 预览生成的 RouterOS 脚本，否则一键安装+执行 |
 
 > 新增端点请同步更新本表与 `web/lib/api.ts` 类型。

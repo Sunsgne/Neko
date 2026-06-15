@@ -13,17 +13,27 @@ package chnroutes
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/netip"
+	"os"
 	"strings"
 	"sync"
 	"time"
 )
 
-// DefaultURL is the canonical chnroutes2 source (raw text, one CIDR per line).
+// DefaultURL is the canonical chnroutes2 source on GitHub (raw text, one CIDR per line).
 const DefaultURL = "https://raw.githubusercontent.com/misakaio/chnroutes2/master/chnroutes.txt"
+
+// Fallback mirrors for environments where raw.githubusercontent.com is unreachable
+// (e.g. Docker 127.0.0.11 DNS issues or mainland network restrictions).
+var DefaultFallbackURLs = []string{
+	"https://cdn.jsdelivr.net/gh/misakaio/chnroutes2@master/chnroutes.txt",
+	"https://ghproxy.net/https://raw.githubusercontent.com/misakaio/chnroutes2/master/chnroutes.txt",
+	DefaultURL,
+}
 
 // maxBody caps the download size (the list is ~200KB; 8MB is a safe ceiling).
 const maxBody = 8 << 20
@@ -33,22 +43,60 @@ const maxBody = 8 << 20
 type Cache struct {
 	mu        sync.RWMutex
 	url       string
+	sources   []string
 	prefixes  []string
 	updatedAt time.Time
 	client    *http.Client
 }
 
-// NewCache builds an empty cache bound to the default source URL.
+// NewCache builds an empty cache with default source URLs (env overrides).
 func NewCache() *Cache {
-	return &Cache{
-		url:    DefaultURL,
-		client: &http.Client{Timeout: 30 * time.Second},
+	return NewCacheWithSources(ResolveSources(""))
+}
+
+// NewCacheWithSources builds a cache that tries sources in order on refresh.
+func NewCacheWithSources(sources []string) *Cache {
+	if len(sources) == 0 {
+		sources = DefaultFallbackURLs
 	}
+	return &Cache{
+		sources: append([]string(nil), sources...),
+		url:     sources[0],
+		client:  &http.Client{Timeout: 45 * time.Second},
+	}
+}
+
+// ResolveSources returns the ordered list of chnroutes download URLs.
+// primary, when non-empty, is tried first (API refresh with explicit url).
+// Env: NEKO_CHNROUTES_URL (single) or NEKO_CHNROUTES_URLS (comma-separated).
+func ResolveSources(primary string) []string {
+	if primary != "" {
+		return []string{primary}
+	}
+	if v := strings.TrimSpace(os.Getenv("NEKO_CHNROUTES_URLS")); v != "" {
+		return splitURLs(v)
+	}
+	if v := strings.TrimSpace(os.Getenv("NEKO_CHNROUTES_URL")); v != "" {
+		return []string{v}
+	}
+	return append([]string(nil), DefaultFallbackURLs...)
+}
+
+func splitURLs(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 // Status is a serializable summary of the cache state.
 type Status struct {
 	URL       string    `json:"url"`
+	Sources   []string  `json:"sources,omitempty"`
 	Count     int       `json:"count"`
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	Loaded    bool      `json:"loaded"`
@@ -60,6 +108,7 @@ func (c *Cache) Status() Status {
 	defer c.mu.RUnlock()
 	return Status{
 		URL:       c.url,
+		Sources:   append([]string(nil), c.sources...),
 		Count:     len(c.prefixes),
 		UpdatedAt: c.updatedAt,
 		Loaded:    len(c.prefixes) > 0,
@@ -75,33 +124,44 @@ func (c *Cache) Prefixes() []string {
 	return out
 }
 
-// Refresh downloads and parses the prefix list from url (or the cached/default
-// URL when url is empty) and atomically replaces the cache contents.
+// Refresh downloads and parses the prefix list. When url is empty, tries every
+// configured source in order until one succeeds.
 func (c *Cache) Refresh(ctx context.Context, url string) (Status, error) {
+	sources := ResolveSources(url)
 	if url == "" {
 		c.mu.RLock()
-		url = c.url
+		if len(c.sources) > 0 {
+			sources = append([]string(nil), c.sources...)
+		}
 		c.mu.RUnlock()
 	}
-	if url == "" {
-		url = DefaultURL
+	if len(sources) == 0 {
+		sources = DefaultFallbackURLs
 	}
-	prefixes, err := c.fetch(ctx, url)
-	if err != nil {
-		return c.Status(), err
+
+	var errs []error
+	for _, src := range sources {
+		prefixes, err := c.fetch(ctx, src)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", src, err))
+			continue
+		}
+		if len(prefixes) == 0 {
+			errs = append(errs, fmt.Errorf("%s: no valid prefixes", src))
+			continue
+		}
+		c.mu.Lock()
+		c.url = src
+		c.sources = append([]string(nil), sources...)
+		c.prefixes = prefixes
+		c.updatedAt = time.Now().UTC()
+		c.mu.Unlock()
+		return c.Status(), nil
 	}
-	if len(prefixes) == 0 {
-		return c.Status(), fmt.Errorf("chnroutes: source %q returned no valid prefixes", url)
-	}
-	c.mu.Lock()
-	c.url = url
-	c.prefixes = prefixes
-	c.updatedAt = time.Now().UTC()
-	c.mu.Unlock()
-	return c.Status(), nil
+	return c.Status(), fmt.Errorf("chnroutes: all sources failed: %w", errors.Join(errs...))
 }
 
-// EnsureLoaded refreshes from the default/cached URL only if the cache is empty.
+// EnsureLoaded refreshes from configured sources only if the cache is empty.
 func (c *Cache) EnsureLoaded(ctx context.Context) (Status, error) {
 	if st := c.Status(); st.Loaded {
 		return st, nil
@@ -114,13 +174,14 @@ func (c *Cache) fetch(ctx context.Context, url string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", "neko-sdwan/chnroutes")
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("chnroutes: fetch %q: %w", url, err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("chnroutes: fetch %q: status %d", url, resp.StatusCode)
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
 	}
 	return Parse(io.LimitReader(resp.Body, maxBody))
 }
@@ -137,7 +198,6 @@ func Parse(r io.Reader) ([]string, error) {
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
 			continue
 		}
-		// Some exports append trailing comments after whitespace.
 		if i := strings.IndexAny(line, " \t"); i > 0 {
 			line = line[:i]
 		}
