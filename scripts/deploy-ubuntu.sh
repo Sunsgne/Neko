@@ -126,6 +126,10 @@ set -a; . ./.env; set +a
 PUBLIC_HOST_SHOWN="${NEKO_PUBLIC_API_URL#http://}"; PUBLIC_HOST_SHOWN="${PUBLIC_HOST_SHOWN%%:*}"
 
 # ── 4. 构建并启动全栈 ──
+if [[ -d .git && -z "${SKIP_PULL:-}" ]]; then
+  log "拉取最新代码..."
+  git fetch origin main 2>/dev/null && git pull --ff-only origin main 2>/dev/null || warn "git pull 跳过（非 git 仓库或拉取失败）"
+fi
 log "构建并启动服务（首次构建较慢，请耐心等待）..."
 $SUDO docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
 

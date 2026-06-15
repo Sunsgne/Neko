@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+- **Docker 镜像版本升级**：`docker-compose.yml` 基础镜像更新 — Redis `7.4-alpine`、NATS `2.12-alpine`、VictoriaMetrics `v1.136.11`、OTel Collector `0.154.0`（自 `0.96.0`）。
+- **远程 Docker 升级**：新增 `scripts/update-deploy.sh` 与 `make deploy-update`（git pull → compose pull → rebuild → 健康检查）；`deploy-ubuntu.sh` 首次/重复部署前自动拉取最新 main。
+
 ### Added
 - **真实链路质量监控(real link-quality monitoring)**：替换原「链路质量」页的演示数据为**设备实测**。
   - 链路模型 + 仓储(memory+pg,迁移 0010 `links` 表)：每条链路绑定设备与探测目标(target)。

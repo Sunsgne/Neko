@@ -1,9 +1,10 @@
-.PHONY: help check demo backend-build backend-test backend-vet backend-run backend-run-seed web-install web-build web-lint up down fmt
+.PHONY: help check demo backend-build backend-test backend-vet backend-run backend-run-seed web-install web-build web-lint up down fmt deploy deploy-update deploy-down
 
 help:
 	@echo "Neko 平台 — 常用命令"
 	@echo "  make demo           一键本地 Demo（后端+演示数据+前端，无需外部依赖）"
 	@echo "  make deploy         Ubuntu 24.04 一键容器化部署（生产，自动生成密钥）"
+	@echo "  make deploy-update  远程升级：拉取最新代码 + 更新镜像 + 重建容器"
 	@echo "  make deploy-down    停止部署的全栈服务"
 	@echo "  make check          运行全部检查（合并主线前必须通过）"
 	@echo "  make backend-build  编译后端"
@@ -18,6 +19,9 @@ demo:
 
 deploy:
 	./scripts/deploy-ubuntu.sh
+
+deploy-update:
+	./scripts/update-deploy.sh
 
 deploy-down:
 	docker compose -f docker-compose.yml -f docker-compose.deploy.yml down

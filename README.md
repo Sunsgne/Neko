@@ -104,7 +104,15 @@ PUBLIC_HOST=sdwan.example.com ADMIN_EMAIL=ops@corp.com WITH_DEMO=false \
   sudo -E bash scripts/deploy-ubuntu.sh
 ```
 
-也可用 `make deploy` / `make deploy-down`。
+也可用 `make deploy` / `make deploy-update` / `make deploy-down`。
+
+已部署服务器升级（拉取最新 main + 更新基础镜像 + 重建应用）：
+
+```bash
+cd neko && sudo bash scripts/update-deploy.sh
+# 或
+make deploy-update
+```
 
 ### 手动部署
 
