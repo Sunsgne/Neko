@@ -1,6 +1,10 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/neko/sdwan/backend/internal/configengine"
+)
 
 // handleSnapshotSave captures and stores a config backup snapshot of a device.
 func (s *Server) handleSnapshotSave(w http.ResponseWriter, r *http.Request) {
@@ -39,6 +43,46 @@ func (s *Server) handleSnapshotGet(w http.ResponseWriter, r *http.Request) {
 		"taken_at":        snap.TakenAt,
 		"state":           state,
 	})
+}
+
+// handleSnapshotRestore re-converges a device to a stored snapshot.
+func (s *Server) handleSnapshotRestore(w http.ResponseWriter, r *http.Request) {
+	deviceID := r.PathValue("id")
+	snapshotID := r.PathValue("snapshotId")
+	res, plan, err := s.inventory.RestoreSnapshot(r.Context(), tenantFrom(r.Context()), deviceID, snapshotID)
+	if err != nil {
+		respondServiceError(w, err)
+		return
+	}
+	s.record(r.Context(), "config_restore", "device", deviceID, map[string]string{"snapshot": snapshotID, "status": res.Status})
+	respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan})
+}
+
+type snapshotApplyRequest struct {
+	State   configengine.State `json:"state"`
+	MaxRisk string             `json:"max_risk,omitempty"`
+}
+
+// handleSnapshotApply pushes an edited configuration state to a device.
+func (s *Server) handleSnapshotApply(w http.ResponseWriter, r *http.Request) {
+	deviceID := r.PathValue("id")
+	snapshotID := r.PathValue("snapshotId")
+	var req snapshotApplyRequest
+	if err := decodeJSON(r, &req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_json", "request body is not valid JSON")
+		return
+	}
+	opts := configengine.ApplyOptions{}
+	if req.MaxRisk != "" {
+		opts.MaxRisk = configengine.Risk(req.MaxRisk)
+	}
+	res, plan, err := s.inventory.ApplyDesiredConfig(r.Context(), tenantFrom(r.Context()), deviceID, req.State, opts)
+	if err != nil {
+		respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan, "error": err.Error()})
+		return
+	}
+	s.record(r.Context(), "config_apply", "device", deviceID, map[string]string{"snapshot": snapshotID, "status": res.Status})
+	respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan})
 }
 
 // handleDrift reports config drift between the two most recent snapshots.

@@ -46,22 +46,33 @@ export default async function AlertsPage() {
 
       <Card>
         <CardHeader title="告警" subtitle="活跃优先" />
-        <ul className="divide-y divide-border/60">
-          {alerts.map((a) => (
-            <li key={a.id} className="flex items-start gap-3 py-3">
-              <StatusDot tone={a.state === "firing" ? sevTone[a.severity] : "neutral"} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{a.title}</span>
-                  <Badge tone={sevTone[a.severity]}>{a.severity}</Badge>
-                  {a.state === "resolved" && <Badge tone="neutral">resolved</Badge>}
-                </div>
-                <p className="mt-0.5 text-xs text-muted">{a.detail}</p>
-              </div>
-              <span className="font-mono text-xs text-muted">{fmt(a.fired_at)}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="data-table-wrap rounded-lg border border-border/60">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="w-8" />
+                <th>告警</th>
+                <th className="w-[72px] text-right">时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alerts.map((a) => (
+                <tr key={a.id}>
+                  <td><StatusDot tone={a.state === "firing" ? sevTone[a.severity] : "neutral"} /></td>
+                  <td>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium">{a.title}</span>
+                      <Badge tone={sevTone[a.severity]}>{a.severity}</Badge>
+                      {a.state === "resolved" && <Badge tone="neutral">resolved</Badge>}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted">{a.detail}</p>
+                  </td>
+                  <td className="text-right font-mono text-xs text-muted">{fmt(a.fired_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );

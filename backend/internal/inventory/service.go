@@ -485,6 +485,29 @@ func (s *Service) GetSnapshot(ctx context.Context, tenantID, deviceID, snapshotI
 	return snap, state, nil
 }
 
+// ApplyDesiredConfig pushes a desired configuration state to an enrolled device
+// using stored credentials and the config engine safety pipeline.
+func (s *Service) ApplyDesiredConfig(ctx context.Context, tenantID, deviceID string, desired configengine.State, opts configengine.ApplyOptions) (configengine.ApplyResult, configengine.Plan, error) {
+	d, err := s.repo.Get(ctx, tenantID, deviceID)
+	if err != nil {
+		return configengine.ApplyResult{}, configengine.Plan{}, err
+	}
+	target, err := s.targetForDevice(ctx, d)
+	if err != nil {
+		return configengine.ApplyResult{}, configengine.Plan{}, err
+	}
+	return configengine.Execute(ctx, routeros.NewApplier(target, nil), nil, desired, opts)
+}
+
+// RestoreSnapshot re-converges a device toward a previously stored snapshot.
+func (s *Service) RestoreSnapshot(ctx context.Context, tenantID, deviceID, snapshotID string) (configengine.ApplyResult, configengine.Plan, error) {
+	_, state, err := s.GetSnapshot(ctx, tenantID, deviceID, snapshotID)
+	if err != nil {
+		return configengine.ApplyResult{}, configengine.Plan{}, err
+	}
+	return s.ApplyDesiredConfig(ctx, tenantID, deviceID, state, configengine.ApplyOptions{})
+}
+
 // DriftResult describes config drift between the two most recent snapshots.
 type DriftResult struct {
 	HasBaseline bool              `json:"has_baseline"`

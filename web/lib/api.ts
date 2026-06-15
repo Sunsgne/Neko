@@ -444,6 +444,36 @@ export async function getSnapshot(deviceId: string, snapshotId: string, token?: 
   return env.data;
 }
 
+export interface ConfigApplyResult {
+  status: string;
+  rolled_back?: boolean;
+  reason?: string;
+}
+
+export interface ConfigApplyResponse {
+  result: ConfigApplyResult;
+  plan?: { changes?: unknown[]; aggregate_risk?: string };
+  error?: string;
+}
+
+export async function restoreSnapshot(deviceId: string, snapshotId: string, token?: string): Promise<ConfigApplyResponse> {
+  const env = await request<ConfigApplyResponse>("POST", `/api/v1/devices/${deviceId}/snapshots/${snapshotId}/restore`, { token });
+  return env.data;
+}
+
+export async function applySnapshotConfig(
+  deviceId: string,
+  snapshotId: string,
+  state: { statements: ConfigStatement[] },
+  token?: string,
+): Promise<ConfigApplyResponse> {
+  const env = await request<ConfigApplyResponse>("POST", `/api/v1/devices/${deviceId}/snapshots/${snapshotId}/apply`, {
+    token,
+    body: { state },
+  });
+  return env.data;
+}
+
 export interface Candidate {
   address: string;
   board: string;

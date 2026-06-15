@@ -130,24 +130,24 @@ export default async function DeviceDetailPage({ params }: { params: { id: strin
 
       {cap?.interfaces && cap.interfaces.length > 0 && (
         <Card className="p-0">
-          <CardHeader title="接口" subtitle={`${cap.interfaces.length} 个接口`} />
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <CardHeader title="接口" subtitle={`${cap.interfaces.length} 个接口`} className="px-5 pt-5" />
+          <div className="data-table-scroll border-t border-border">
+            <table className="data-table data-table-compact">
               <thead>
-                <tr className="border-y border-border text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-5 py-3 font-medium">名称</th>
-                  <th className="px-5 py-3 font-medium">类型</th>
-                  <th className="px-5 py-3 font-medium">速率</th>
-                  <th className="px-5 py-3 font-medium">能力</th>
+                <tr>
+                  <th>名称</th>
+                  <th>类型</th>
+                  <th>速率</th>
+                  <th>能力</th>
                 </tr>
               </thead>
               <tbody>
                 {cap.interfaces.map((i) => (
-                  <tr key={i.name} className="border-b border-border/60">
-                    <td className="px-5 py-3 font-mono text-xs">{i.name}</td>
-                    <td className="px-5 py-3 text-muted">{i.type}</td>
-                    <td className="px-5 py-3 font-mono text-xs text-muted">{i.speed_mbps ? `${i.speed_mbps} Mbps` : "—"}</td>
-                    <td className="px-5 py-3 text-muted">{(i.features || []).join(", ") || "—"}</td>
+                  <tr key={i.name}>
+                    <td className="max-w-[280px] truncate font-mono text-xs">{i.name}</td>
+                    <td className="text-xs text-muted">{i.type}</td>
+                    <td className="font-mono text-xs text-muted">{i.speed_mbps ? `${i.speed_mbps} Mbps` : "—"}</td>
+                    <td className="max-w-[320px] truncate text-xs text-muted">{(i.features || []).join(", ") || "—"}</td>
                   </tr>
                 ))}
               </tbody>

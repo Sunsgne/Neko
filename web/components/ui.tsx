@@ -5,9 +5,9 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return <div className={cn("card", className)} {...props} />;
 }
 
-export function CardHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
+export function CardHeader({ title, subtitle, action, className }: { title: string; subtitle?: string; action?: React.ReactNode; className?: string }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-4">
+    <div className={cn("mb-4 flex items-start justify-between gap-4", className)}>
       <div>
         <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
         {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}

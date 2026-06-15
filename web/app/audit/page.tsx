@@ -10,6 +10,8 @@ const actionTone: Record<string, "success" | "primary" | "warning" | "danger" | 
   config_push: "warning",
   orchestrate: "warning",
   config_snapshot: "neutral",
+  config_restore: "warning",
+  config_apply: "warning",
   trust_change: "primary",
   batch_onboard: "success",
 };
@@ -30,27 +32,27 @@ export default async function AuditPage() {
       </div>
 
       <Card className="p-0">
-        <CardHeader title="操作记录" subtitle={`${entries.length} 条`} />
+        <CardHeader title="操作记录" subtitle={`${entries.length} 条`} className="px-5 pt-5" />
         {entries.length === 0 ? (
           <p className="px-5 py-10 text-center text-sm text-muted">暂无审计记录。执行创建/纳管/下发等操作后会记录在此。</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="data-table-scroll border-t border-border">
+            <table className="data-table">
               <thead>
-                <tr className="border-y border-border text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-5 py-3 font-medium">时间</th>
-                  <th className="px-5 py-3 font-medium">操作者</th>
-                  <th className="px-5 py-3 font-medium">动作</th>
-                  <th className="px-5 py-3 font-medium">对象</th>
+                <tr>
+                  <th>时间</th>
+                  <th>操作者</th>
+                  <th>动作</th>
+                  <th>对象</th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
-                  <tr key={e.id} className="border-b border-border/60">
-                    <td className="px-5 py-3 font-mono text-xs text-muted">{new Date(e.at).toLocaleString()}</td>
-                    <td className="px-5 py-3">{e.actor_id || "—"}</td>
-                    <td className="px-5 py-3"><Badge tone={actionTone[e.action] ?? "neutral"}>{e.action}</Badge></td>
-                    <td className="px-5 py-3 text-muted">{e.object_type}{e.object_id ? ` · ${e.object_id}` : ""}</td>
+                  <tr key={e.id}>
+                    <td className="whitespace-nowrap font-mono text-xs text-muted">{new Date(e.at).toLocaleString()}</td>
+                    <td>{e.actor_id || "—"}</td>
+                    <td><Badge tone={actionTone[e.action] ?? "neutral"}>{e.action}</Badge></td>
+                    <td className="text-muted">{e.object_type}{e.object_id ? ` · ${e.object_id}` : ""}</td>
                   </tr>
                 ))}
               </tbody>

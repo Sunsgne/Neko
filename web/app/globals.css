@@ -29,6 +29,58 @@
   .pill {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
+
+  .data-table-wrap {
+    @apply overflow-x-auto;
+  }
+
+  .data-table-scroll {
+    @apply max-h-[min(480px,60vh)] overflow-auto;
+  }
+
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  .data-table thead th {
+    @apply border-b border-border bg-surface px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted;
+  }
+
+  .data-table-scroll thead th {
+    @apply sticky top-0 z-10 bg-surface/95 backdrop-blur-sm;
+  }
+
+  .data-table tbody td {
+    @apply border-b border-border/50 px-4 py-2.5 align-middle;
+  }
+
+  .data-table tbody tr {
+    @apply transition-colors hover:bg-elevated/40;
+  }
+
+  .data-table-compact tbody td {
+    @apply py-1.5;
+  }
+
+  .btn-sm {
+    @apply inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:border-primary disabled:opacity-50;
+  }
+
+  .btn-sm-primary {
+    @apply inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20 disabled:opacity-50;
+  }
+
+  .btn-sm-danger {
+    @apply inline-flex items-center gap-1 rounded-md border border-danger/40 bg-danger/10 px-2 py-1 text-xs text-danger hover:bg-danger/20 disabled:opacity-50;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm;
+  }
+
+  .modal-panel {
+    @apply flex max-h-[min(720px,90vh)] w-full max-w-3xl flex-col rounded-xl border border-border bg-surface shadow-card;
+  }
 }
 
 /* Thin, subtle scrollbars to match the console aesthetic. */
