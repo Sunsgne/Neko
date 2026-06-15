@@ -25,20 +25,29 @@ func TestPopPeerOfAlignedSubnet(t *testing.T) {
 	}
 }
 
-func TestBuildFabricPlanBothSides(t *testing.T) {
+func TestBuildFabricPlanChinaSplit(t *testing.T) {
 	cpe := &store.Device{ID: "c1", Name: "edge-sh-01", MgmtAddress: "10.10.1.1:8728"}
 	pop := &store.Device{ID: "p1", Name: "pop-hk", MgmtAddress: "107.155.12.197:55888"}
-	plan, err := BuildFabricPlan(cpe, pop, accel.ModeOverseasDirect, "", "", "", "", nil)
+	plan, err := BuildFabricPlan(cpe, pop, accel.ModeChinaSplit, "192.168.1.1", "", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(plan.CPEDesired.Statements) == 0 || len(plan.POPDesired.Statements) == 0 {
-		t.Fatal("expected non-empty CPE and POP desired states")
+		t.Fatal("expected tunnel on both sides")
 	}
-	if plan.Link.CPEInterface == "" || plan.Link.POPInterface == "" {
-		t.Fatal("expected tunnel interface names")
+	// CPE should be tunnel-only (no default route from accel).
+	for _, st := range plan.CPEDesired.Statements {
+		if st.Path == "/ip/route" {
+			t.Fatal("china_split CPE should not include accel routes in fabric plan")
+		}
 	}
-	if plan.Link.POPGateway == "" {
-		t.Fatal("expected POP gateway")
+	hasNAT := false
+	for _, st := range plan.POPDesired.Statements {
+		if st.Path == "/ip/firewall/nat" {
+			hasNAT = true
+		}
+	}
+	if !hasNAT {
+		t.Fatal("POP should have egress NAT for china_split")
 	}
 }

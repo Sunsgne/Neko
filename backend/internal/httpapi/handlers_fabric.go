@@ -49,6 +49,8 @@ func (s *Server) handleFabricDeploy(w http.ResponseWriter, r *http.Request) {
 	mode := accel.Mode(req.Mode)
 	if req.Mode == "mesh" {
 		mode = ""
+	} else if req.Mode == "china_split" {
+		mode = accel.ModeChinaSplit
 	} else if mode == "" {
 		mode = accel.ModeOverseasDirect
 	}

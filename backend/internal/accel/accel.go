@@ -21,6 +21,9 @@ const (
 	ModeSmartSplit     Mode = "smart_split"
 	ModeOverseasDirect Mode = "overseas_direct"
 	ModeDomesticDirect Mode = "domestic_direct"
+	// ModeChinaSplit uses the chnroutes prefix table: domestic via local WAN,
+	// overseas 0.0.0.0/1+128.0.0.0/1 via the SD-WAN tunnel (script delivery).
+	ModeChinaSplit Mode = "china_split"
 )
 
 // Profile parameterizes the acceleration configuration for a CPE.
@@ -61,6 +64,8 @@ func BuildConfig(p Profile) (configengine.State, error) {
 		return buildOverseasDirect(p)
 	case ModeSmartSplit:
 		return buildSmartSplit(p)
+	case ModeChinaSplit:
+		return configengine.State{}, ErrInvalidProfile{Reason: "china_split 路由表由 chnroutes 脚本下发，请调用 /accel/china-split"}
 	case ModeDomesticDirect:
 		return buildDomesticDirect(p)
 	default:
@@ -201,7 +206,9 @@ func Describe(m Mode) string {
 	case ModeOverseasDirect:
 		return "海外运营：全量流量直连海外出口 IP，不做分流"
 	case ModeSmartSplit:
-		return "智能分流：国内直连本地出口，海外走 SD-WAN 隧道"
+		return "智能分流：国内直连本地出口，海外走 SD-WAN 隧道（地址组）"
+	case ModeChinaSplit:
+		return "国内外分流：国内 chnroutes 路由表直连本地 WAN，海外 0/1+128/1 走隧道"
 	case ModeDomesticDirect:
 		return "国内直连：全量走本地出口"
 	default:

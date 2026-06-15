@@ -69,17 +69,10 @@ export default function DnsPage() {
     const ids = servers.filter((s) => sel[s.id]).map((s) => s.id);
     if (!deviceId) { setError("请选择目标设备"); return; }
     if (ids.length === 0) { setError("请勾选要下发的 DNS 服务器"); return; }
-    let creds: { u: string; p: string } | undefined;
-    if (!dryRun) {
-      const u = window.prompt("设备登录用户名（用于下发，不保存）", "admin");
-      if (u === null) return;
-      const p = window.prompt("设备登录密码") ?? "";
-      creds = { u, p };
-    }
     setBusy(true);
     try {
       const verify = verifyDoh === "auto" ? undefined : verifyDoh === "on";
-      setResult(await applyDNS(deviceId, { server_ids: ids, verify_doh_cert: verify, username: creds?.u, password: creds?.p, dry_run: dryRun }, currentToken()));
+      setResult(await applyDNS(deviceId, { server_ids: ids, verify_doh_cert: verify, dry_run: dryRun }, currentToken()));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "下发失败");
     } finally { setBusy(false); }

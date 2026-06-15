@@ -14,6 +14,7 @@ import (
 func (s *Server) handleAccelModes(w http.ResponseWriter, _ *http.Request) {
 	modes := []map[string]string{
 		{"mode": string(accel.ModeSmartSplit), "desc": accel.Describe(accel.ModeSmartSplit)},
+		{"mode": string(accel.ModeChinaSplit), "desc": accel.Describe(accel.ModeChinaSplit)},
 		{"mode": string(accel.ModeOverseasDirect), "desc": accel.Describe(accel.ModeOverseasDirect)},
 		{"mode": string(accel.ModeDomesticDirect), "desc": accel.Describe(accel.ModeDomesticDirect)},
 	}

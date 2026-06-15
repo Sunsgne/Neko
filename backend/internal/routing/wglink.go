@@ -102,10 +102,25 @@ func BuildFabricPlan(cpe, pop *store.Device, mode accel.Mode, localWAN string, c
 	var profile accel.Profile
 	cpeState := link.CPEState()
 	popDesired := link.POPState(mode)
+	if mode == accel.ModeChinaSplit {
+		// POP needs egress NAT; routes come from chnroutes script on CPE.
+		popDesired = link.POPState(accel.ModeOverseasDirect)
+	}
 
 	switch mode {
-	case "":
-		// Tunnel-only (mesh): no acceleration profile on CPE.
+	case "", accel.ModeChinaSplit:
+		if mode == accel.ModeChinaSplit && localWAN == "" {
+			return FabricPlan{}, fmt.Errorf("china_split 需要 local_wan_gateway")
+		}
+		if mode == accel.ModeChinaSplit {
+			profile = accel.Profile{
+				Mode:            mode,
+				TunnelInterface: link.CPEInterface,
+				OverseasGateway: link.POPGateway,
+				LocalWANGateway: localWAN,
+			}
+		}
+		// Tunnel-only on CPE (mesh / china_split).
 	case accel.ModeOverseasDirect:
 		profile = accel.Profile{
 			Mode:            mode,
@@ -132,7 +147,7 @@ func BuildFabricPlan(cpe, pop *store.Device, mode accel.Mode, localWAN string, c
 	}
 
 	cpeDesired := cpeState
-	if mode != "" {
+	if mode != "" && mode != accel.ModeChinaSplit {
 		accelState, err := accel.BuildConfig(profile)
 		if err != nil {
 			return FabricPlan{}, err

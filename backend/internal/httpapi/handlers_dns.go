@@ -123,10 +123,17 @@ func (s *Server) handleDNSApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	applier := routeros.NewApplier(routeros.Target{Address: dev.MgmtAddress, Username: req.Username, Secret: req.Password}, nil)
-	res, plan, err := configengine.Execute(r.Context(), applier, nil, desired, configengine.ApplyOptions{})
-	if err != nil {
-		respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan, "error": err.Error()})
+	var res configengine.ApplyResult
+	var plan configengine.Plan
+	var applyErr error
+	if req.Username == "" {
+		res, plan, applyErr = s.inventory.ApplyDesiredConfig(r.Context(), tenantFrom(r.Context()), dev.ID, desired, configengine.ApplyOptions{})
+	} else {
+		applier := routeros.NewApplier(routeros.Target{Address: dev.MgmtAddress, Username: req.Username, Secret: req.Password}, nil)
+		res, plan, applyErr = configengine.Execute(r.Context(), applier, nil, desired, configengine.ApplyOptions{})
+	}
+	if applyErr != nil {
+		respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan, "error": applyErr.Error()})
 		return
 	}
 	s.record(r.Context(), "dns_apply", "device", dev.ID, map[string]string{"count": itoa(len(primary))})
