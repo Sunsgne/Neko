@@ -53,6 +53,10 @@
 | POST | `/api/v1/accel/propose` | CPE→POP 加速：自动生成 WG 密钥/overlay 地址/隧道参数 + CPE/POP 双侧配置预览 |
 | POST | `/api/v1/fabric/deploy` | 生产级双向下发：POP 先、CPE 后，WireGuard 隧道 + 加速/组网路由，使用托管凭据。`dry_run` 预览 |
 | POST | `/api/v1/mesh/deploy` | 多站点组网：`topology`=`hub_spoke`\|`transit`\|`full_mesh`，`sites[]`（CPE+POP+prefixes），`backbone_path`（transit/full_mesh），BGP AS + 骨干间 WG/iBGP |
+| GET | `/api/v1/qos/policies` | 限速策略池（RouterOS Simple Queue 模板） |
+| POST | `/api/v1/qos/policies` | 添加快限速策略 `{name,target,max_limit,limit_at?,priority?}` |
+| DELETE | `/api/v1/qos/policies/{id}` | 删除限速策略 |
+| POST | `/api/v1/devices/{id}/qos` | 下发 Simple Queue 到设备，`policy_ids` 或内联 `rules`，支持 `dry_run` |
 | GET | `/api/v1/links` | 监控链路列表（设备实测的延迟/抖动/丢包/评分） |
 | POST | `/api/v1/links` | 新增监控链路 `{device_id, name, kind, isp, role, target}` |
 | DELETE | `/api/v1/links/{id}` | 删除监控链路 |

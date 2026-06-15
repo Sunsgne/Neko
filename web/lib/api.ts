@@ -785,3 +785,50 @@ export async function applyDNS(
   const env = await request<DNSApplyResult>("POST", `/api/v1/devices/${deviceId}/dns`, { token, body });
   return env.data;
 }
+
+export interface QoSPolicy {
+  id: string;
+  name: string;
+  target: string;
+  max_limit: string;
+  limit_at?: string;
+  burst_limit?: string;
+  priority: number;
+  comment?: string;
+  created_at?: string;
+}
+
+export async function listQoSPolicies(token?: string): Promise<QoSPolicy[]> {
+  const env = await request<QoSPolicy[]>("GET", "/api/v1/qos/policies", { token });
+  return env.data ?? [];
+}
+
+export async function createQoSPolicy(
+  body: { name: string; target: string; max_limit: string; limit_at?: string; burst_limit?: string; priority?: number; comment?: string },
+  token?: string,
+): Promise<QoSPolicy> {
+  const env = await request<QoSPolicy>("POST", "/api/v1/qos/policies", { token, body });
+  return env.data;
+}
+
+export async function deleteQoSPolicy(id: string, token?: string): Promise<void> {
+  await request("DELETE", `/api/v1/qos/policies/${id}`, { token });
+}
+
+export interface QoSApplyResult {
+  dry_run?: boolean;
+  desired?: { statements: Array<{ path: string; key: string; attributes: Record<string, string> }> };
+  plan?: { changes: Array<{ type: string; risk: string }>; aggregate_risk: string };
+  result?: { status: string; reason?: string };
+  rule_count?: number;
+  error?: string;
+}
+
+export async function applyQoS(
+  deviceId: string,
+  body: { policy_ids?: string[]; rules?: Array<{ name: string; target: string; max_limit: string; limit_at?: string; burst_limit?: string; priority?: number }>; dry_run: boolean },
+  token?: string,
+): Promise<QoSApplyResult> {
+  const env = await request<QoSApplyResult>("POST", `/api/v1/devices/${deviceId}/qos`, { token, body });
+  return env.data;
+}

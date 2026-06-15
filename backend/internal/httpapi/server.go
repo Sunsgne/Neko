@@ -29,6 +29,7 @@ type Server struct {
 	audit     audit.Recorder
 	alerts    store.AlertRepository
 	dns       store.DNSRepository
+	qos       store.QoSRepository
 	links     store.LinkRepository
 	vm        *vmetrics.Client
 	idgen     func(string) string
@@ -50,6 +51,7 @@ type Deps struct {
 	Audit     audit.Recorder
 	Alerts    store.AlertRepository
 	Dns       store.DNSRepository
+	QoS       store.QoSRepository
 	Links     store.LinkRepository
 	VM        *vmetrics.Client
 	IDGen     func(string) string
@@ -75,6 +77,7 @@ func New(d Deps) *Server {
 		audit:     d.Audit,
 		alerts:    d.Alerts,
 		dns:       d.Dns,
+		qos:       d.QoS,
 		links:     d.Links,
 		vm:        d.VM,
 		idgen:     d.IDGen,
@@ -181,6 +184,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/dns/servers", s.handleCreateDNSServer)
 	mux.HandleFunc("DELETE /api/v1/dns/servers/{id}", s.handleDeleteDNSServer)
 	mux.HandleFunc("POST /api/v1/devices/{id}/dns", s.handleDNSApply)
+
+	mux.HandleFunc("GET /api/v1/qos/policies", s.handleListQoSPolicies)
+	mux.HandleFunc("POST /api/v1/qos/policies", s.handleCreateQoSPolicy)
+	mux.HandleFunc("DELETE /api/v1/qos/policies/{id}", s.handleDeleteQoSPolicy)
+	mux.HandleFunc("POST /api/v1/qos/preview", s.handleQoSPreview)
+	mux.HandleFunc("POST /api/v1/devices/{id}/qos", s.handleQoSApply)
 
 	// Stateless planning/validation tools (preview before apply).
 	mux.HandleFunc("POST /api/v1/tools/config-diff", s.handleConfigDiff)

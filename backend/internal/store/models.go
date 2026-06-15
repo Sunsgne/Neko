@@ -94,6 +94,20 @@ type DNSServer struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// QoSPolicy is a persisted simple-queue template for rate limiting.
+type QoSPolicy struct {
+	ID         string    `json:"id"`
+	TenantID   string    `json:"tenant_id"`
+	Name       string    `json:"name"`
+	Target     string    `json:"target"`
+	MaxLimit   string    `json:"max_limit"`
+	LimitAt    string    `json:"limit_at,omitempty"`
+	BurstLimit string    `json:"burst_limit,omitempty"`
+	Priority   int       `json:"priority"`
+	Comment    string    `json:"comment,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 // Link is a monitored WAN/overlay path on a device. The platform actively
 // measures it (by pinging Target from the device) and stores the latest
 // latency/jitter/loss/score so the console shows real quality, not demo data.

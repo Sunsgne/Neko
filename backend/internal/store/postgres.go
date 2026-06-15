@@ -25,6 +25,7 @@ type PostgresStore struct {
 	snaps   *pgSnapshotRepo
 	sess    *pgSessionRepo
 	dns     *pgDNSRepo
+	qos     *pgQoSRepo
 	links   *pgLinkRepo
 }
 
@@ -49,6 +50,7 @@ func OpenPostgres(ctx context.Context, dsn string) (*PostgresStore, error) {
 		snaps:   &pgSnapshotRepo{pool: pool},
 		sess:    &pgSessionRepo{pool: pool},
 		dns:     &pgDNSRepo{pool: pool},
+		qos:     &pgQoSRepo{pool: pool},
 		links:   &pgLinkRepo{pool: pool},
 	}, nil
 }
@@ -108,6 +110,7 @@ func (s *PostgresStore) Alerts() AlertRepository             { return s.alerts }
 func (s *PostgresStore) Snapshots() ConfigSnapshotRepository { return s.snaps }
 func (s *PostgresStore) Sessions() SessionRepository         { return s.sess }
 func (s *PostgresStore) Dns() DNSRepository                  { return s.dns }
+func (s *PostgresStore) QoS() QoSRepository                  { return s.qos }
 func (s *PostgresStore) Links() LinkRepository               { return s.links }
 
 type pgLinkRepo struct{ pool *pgxpool.Pool }
@@ -246,6 +249,60 @@ func (r *pgDNSRepo) List(ctx context.Context, tenantID string) ([]*DNSServer, er
 
 func (r *pgDNSRepo) Delete(ctx context.Context, tenantID, id string) error {
 	q := `DELETE FROM dns_servers WHERE id=$1`
+	args := []any{id}
+	if tenantID != "" {
+		q += ` AND (tenant_id IS NULL OR tenant_id=$2)`
+		args = append(args, tenantID)
+	}
+	ct, err := r.pool.Exec(ctx, q, args...)
+	if err != nil {
+		return mapPgError(err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+type pgQoSRepo struct{ pool *pgxpool.Pool }
+
+func (r *pgQoSRepo) Create(ctx context.Context, p QoSPolicy) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO qos_policies (id, tenant_id, name, target, max_limit, limit_at, burst_limit, priority, comment)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		p.ID, nullable(p.TenantID), p.Name, p.Target, p.MaxLimit, p.LimitAt, p.BurstLimit, p.Priority, p.Comment)
+	return mapPgError(err)
+}
+
+func (r *pgQoSRepo) List(ctx context.Context, tenantID string) ([]*QoSPolicy, error) {
+	var rows pgx.Rows
+	var err error
+	if tenantID == "" {
+		rows, err = r.pool.Query(ctx,
+			`SELECT id, coalesce(tenant_id,''), name, target, max_limit, limit_at, burst_limit, priority, comment, created_at
+			 FROM qos_policies ORDER BY name ASC`)
+	} else {
+		rows, err = r.pool.Query(ctx,
+			`SELECT id, coalesce(tenant_id,''), name, target, max_limit, limit_at, burst_limit, priority, comment, created_at
+			 FROM qos_policies WHERE tenant_id IS NULL OR tenant_id=$1 ORDER BY name ASC`, tenantID)
+	}
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	defer rows.Close()
+	var out []*QoSPolicy
+	for rows.Next() {
+		var p QoSPolicy
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.Name, &p.Target, &p.MaxLimit, &p.LimitAt, &p.BurstLimit, &p.Priority, &p.Comment, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, &p)
+	}
+	return out, rows.Err()
+}
+
+func (r *pgQoSRepo) Delete(ctx context.Context, tenantID, id string) error {
+	q := `DELETE FROM qos_policies WHERE id=$1`
 	args := []any{id}
 	if tenantID != "" {
 		q += ` AND (tenant_id IS NULL OR tenant_id=$2)`

@@ -18,6 +18,7 @@ type MemoryStore struct {
 	snaps   *memSnapshotRepo
 	sess    *memSessionRepo
 	dns     *memDNSRepo
+	qos     *memQoSRepo
 	links   *memLinkRepo
 }
 
@@ -31,6 +32,7 @@ func NewMemory() *MemoryStore {
 		snaps:   &memSnapshotRepo{items: map[string]*ConfigSnapshot{}},
 		sess:    &memSessionRepo{items: map[string]SessionRecord{}},
 		dns:     &memDNSRepo{items: map[string]*DNSServer{}},
+		qos:     &memQoSRepo{items: map[string]*QoSPolicy{}},
 		links:   &memLinkRepo{items: map[string]*Link{}},
 	}
 }
@@ -42,6 +44,7 @@ func (m *MemoryStore) Alerts() AlertRepository             { return m.alerts }
 func (m *MemoryStore) Snapshots() ConfigSnapshotRepository { return m.snaps }
 func (m *MemoryStore) Sessions() SessionRepository         { return m.sess }
 func (m *MemoryStore) Dns() DNSRepository                  { return m.dns }
+func (m *MemoryStore) QoS() QoSRepository                { return m.qos }
 func (m *MemoryStore) Links() LinkRepository               { return m.links }
 
 type memLinkRepo struct {
@@ -153,6 +156,44 @@ func (r *memDNSRepo) Delete(_ context.Context, tenantID, id string) error {
 	defer r.mu.Unlock()
 	s, ok := r.items[id]
 	if !ok || (tenantID != "" && s.TenantID != "" && s.TenantID != tenantID) {
+		return ErrNotFound
+	}
+	delete(r.items, id)
+	return nil
+}
+
+type memQoSRepo struct {
+	mu    sync.RWMutex
+	items map[string]*QoSPolicy
+}
+
+func (r *memQoSRepo) Create(_ context.Context, p QoSPolicy) error {
+	r.mu.Lock()
+	cp := p
+	r.items[p.ID] = &cp
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *memQoSRepo) List(_ context.Context, tenantID string) ([]*QoSPolicy, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*QoSPolicy, 0, len(r.items))
+	for _, p := range r.items {
+		if tenantID == "" || p.TenantID == "" || p.TenantID == tenantID {
+			cp := *p
+			out = append(out, &cp)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+func (r *memQoSRepo) Delete(_ context.Context, tenantID, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.items[id]
+	if !ok || (tenantID != "" && p.TenantID != "" && p.TenantID != tenantID) {
 		return ErrNotFound
 	}
 	delete(r.items, id)

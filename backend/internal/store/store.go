@@ -114,6 +114,13 @@ type DNSRepository interface {
 	Delete(ctx context.Context, tenantID, id string) error
 }
 
+// QoSRepository persists rate-limit policy templates.
+type QoSRepository interface {
+	Create(ctx context.Context, p QoSPolicy) error
+	List(ctx context.Context, tenantID string) ([]*QoSPolicy, error)
+	Delete(ctx context.Context, tenantID, id string) error
+}
+
 // LinkRepository persists monitored links and their latest quality snapshot.
 type LinkRepository interface {
 	Create(ctx context.Context, l Link) error
@@ -134,5 +141,6 @@ type Store interface {
 	Snapshots() ConfigSnapshotRepository
 	Sessions() SessionRepository
 	Dns() DNSRepository
+	QoS() QoSRepository
 	Links() LinkRepository
 }
