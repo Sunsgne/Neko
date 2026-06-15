@@ -9,12 +9,16 @@ export function hostFromMgmt(addr: string): string {
 }
 
 export function popPeerOf(cpeOverlay: string): string {
-  const ip = cpeOverlay.split("/")[0];
-  const parts = ip.split(".");
-  if (parts.length === 4) {
-    parts[3] = "1";
-    return parts.join(".");
-  }
+  const parts = cpeOverlay.split("/");
+  const ip = parts[0];
+  const segs = ip.split(".").map(Number);
+  if (segs.length !== 4 || parts[1] !== "30") return ip;
+  const base = segs[3] & ~3;
+  const host1 = base + 1;
+  const host2 = base + 2;
+  const last = segs[3];
+  if (last === host1) return `${segs[0]}.${segs[1]}.${segs[2]}.${host2}`;
+  if (last === host2) return `${segs[0]}.${segs[1]}.${segs[2]}.${host1}`;
   return ip;
 }
 

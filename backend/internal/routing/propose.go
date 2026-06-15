@@ -2,7 +2,6 @@ package routing
 
 import (
 	"fmt"
-	"hash/fnv"
 	"strings"
 
 	"github.com/neko/sdwan/backend/internal/accel"
@@ -33,15 +32,14 @@ func HostFromMgmt(addr string) string {
 }
 
 // PopPeerOf derives the POP-side overlay peer IP from the CPE tunnel /30.
-// e.g. 100.64.0.2/30 → 100.64.0.1
+// e.g. 100.64.0.2/30 → 100.64.0.1 ; 100.64.88.118/30 → 100.64.88.117
 func PopPeerOf(cpeOverlay string) string {
-	ip := strings.Split(cpeOverlay, "/")[0]
-	parts := strings.Split(ip, ".")
-	if len(parts) == 4 {
-		parts[3] = "1"
-		return strings.Join(parts, ".")
+	gw, err := popGatewayFromCPEOverlay(cpeOverlay)
+	if err != nil {
+		ip := strings.Split(cpeOverlay, "/")[0]
+		return ip
 	}
-	return ip
+	return gw
 }
 
 // TunnelNameForPOP builds a stable WireGuard interface name from the POP name.
@@ -65,17 +63,10 @@ func TunnelNameForPOP(popName string) string {
 	return out
 }
 
-// AllocateOverlay picks a deterministic /30 in 100.64.0.0/16 for a CPE↔POP pair.
+// AllocateOverlay picks a deterministic CPE-side /30 in 100.64.0.0/16 for a CPE↔POP pair.
 func AllocateOverlay(cpeID, popID string) string {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(cpeID + ":" + popID))
-	v := h.Sum32()
-	o3 := byte(v%250 + 1)
-	o4 := byte((v>>8)%250 + 2)
-	if o4 < 2 {
-		o4 = 2
-	}
-	return fmt.Sprintf("100.64.%d.%d/30", o3, o4)
+	_, cpe := AllocateOverlayPair(cpeID, popID)
+	return cpe
 }
 
 // ProposeAccelToPOP generates WireGuard tunnel + acceleration parameters for
@@ -87,56 +78,45 @@ func ProposeAccelToPOP(cpe, pop *store.Device, mode accel.Mode, localWAN string,
 	if mode != accel.ModeDomesticDirect && cpe == nil {
 		return AccelProposal{}, fmt.Errorf("cpe device required")
 	}
-	if cpeOverlay == "" && cpe != nil {
-		cpeOverlay = AllocateOverlay(cpe.ID, pop.ID)
-	}
-	popPeer := PopPeerOf(cpeOverlay)
-	tn := TunnelNameForPOP(pop.Name)
-	endpoint := HostFromMgmt(pop.MgmtAddress)
-
-	priv, pub, err := GenerateWGKeyPair()
-	if err != nil {
-		return AccelProposal{}, err
-	}
-
-	tunnel := Tunnel{
-		Name:       tn,
-		Type:       TunnelWireGuard,
-		RemoteIP:   endpoint,
-		TunnelAddr: cpeOverlay,
-		PrivateKey: priv,
-		ListenPort: 13231,
-	}
-
-	profile := accel.Profile{
-		Mode:            mode,
-		TunnelInterface: tn,
-		OverseasGateway: popPeer,
-		LocalWANGateway: localWAN,
-	}
-	switch mode {
-	case accel.ModeOverseasDirect:
-		profile.OverseasDNS = []string{"8.8.8.8", "1.1.1.1"}
-	case accel.ModeSmartSplit:
-		if localWAN == "" {
-			return AccelProposal{}, fmt.Errorf("smart_split 需要 local_wan_gateway")
-		}
-		profile.DomesticDNS = []string{"223.5.5.5", "114.114.114.114"}
-	case accel.ModeDomesticDirect:
+	if mode == accel.ModeDomesticDirect {
 		if localWAN == "" {
 			return AccelProposal{}, fmt.Errorf("domestic_direct 需要 local_wan_gateway")
 		}
-		profile.DomesticDNS = []string{"223.5.5.5", "114.114.114.114"}
+		return AccelProposal{
+			Accel: accel.Profile{
+				Mode:            mode,
+				LocalWANGateway: localWAN,
+				DomesticDNS:     []string{"223.5.5.5", "114.114.114.114"},
+			},
+		}, nil
 	}
+	fabric, err := BuildFabricPlan(cpe, pop, mode, localWAN, cpeOverlay, "", "", nil)
+	if err != nil {
+		return AccelProposal{}, err
+	}
+	return FabricToProposal(fabric), nil
+}
 
+// FabricToProposal maps a bilateral fabric plan to the legacy AccelProposal DTO.
+func FabricToProposal(f FabricPlan) AccelProposal {
+	l := f.Link
 	return AccelProposal{
-		Tunnel:          tunnel,
-		CpePrivateKey:   priv,
-		CpePublicKey:    pub,
-		PopPeer:         popPeer,
-		PopEndpoint:     endpoint,
-		TunnelInterface: tn,
-		CpeOverlay:      cpeOverlay,
-		Accel:           profile,
-	}, nil
+		Tunnel: Tunnel{
+			Name:       l.CPEInterface,
+			Type:       TunnelWireGuard,
+			RemoteIP:   l.POPEndpointHost,
+			TunnelAddr: l.CPEOverlay,
+			PrivateKey: l.CPEPrivateKey,
+			PublicKey:  l.POPPublicKey,
+			ListenPort: l.ListenPort,
+		},
+		CpePrivateKey:    l.CPEPrivateKey,
+		CpePublicKey:     l.CPEPublicKey,
+		PopPeer:          l.POPGateway,
+		PopEndpoint:      l.POPEndpointHost,
+		TunnelInterface:  l.CPEInterface,
+		CpeOverlay:       l.CPEOverlay,
+		Accel:            f.Accel,
+		PopPublicKeyHint: l.POPPublicKeyHint,
+	}
 }

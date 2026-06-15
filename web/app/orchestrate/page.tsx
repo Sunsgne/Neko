@@ -4,9 +4,10 @@ import * as React from "react";
 import { Workflow, Eye, Send, Loader2, Server, Router as RouterIcon, RefreshCw, ListTree } from "lucide-react";
 import { Card, CardHeader, Badge } from "@/components/ui";
 import {
-  listDevices, orchestrate, getChnroutes, refreshChnroutes, chinaSplit,
-  type Device, type OrchestrateResult, type ChnroutesStatus, type ChinaSplitResult, ApiError,
+  listDevices, deployFabric, getChnroutes, refreshChnroutes, chinaSplit,
+  type Device, type FabricDeployResult, type ChnroutesStatus, type ChinaSplitResult, ApiError,
 } from "@/lib/api";
+import { hostFromMgmt, popPeerOf, tunnelNameForPop } from "@/lib/tunnel";
 import { currentToken } from "@/lib/session";
 
 type Mode = "mesh" | "overseas_direct" | "smart_split" | "china_split";
@@ -22,18 +23,7 @@ const riskTone: Record<string, "success" | "primary" | "warning" | "danger"> = {
   low: "success", medium: "primary", high: "warning", critical: "danger",
 };
 
-function host(addr: string): string {
-  // strip :port
-  const i = addr.lastIndexOf(":");
-  return i > 0 && addr.indexOf(".") < i ? addr.slice(0, i) : addr;
-}
-function peerOf(cidr: string): string {
-  // 100.64.0.2/30 -> 100.64.0.1
-  const ip = cidr.split("/")[0];
-  const parts = ip.split(".");
-  if (parts.length === 4) { parts[3] = "1"; return parts.join("."); }
-  return ip;
-}
+type PreviewSide = "cpe" | "pop";
 
 export default function OrchestratePage() {
   const [devices, setDevices] = React.useState<Device[]>([]);
@@ -46,7 +36,8 @@ export default function OrchestratePage() {
   const [internalCidr, setInternalCidr] = React.useState("10.0.0.0/8");
   const [localWan, setLocalWan] = React.useState("192.168.1.1");
 
-  const [result, setResult] = React.useState<OrchestrateResult | null>(null);
+  const [fabricResult, setFabricResult] = React.useState<FabricDeployResult | null>(null);
+  const [previewSide, setPreviewSide] = React.useState<PreviewSide>("cpe");
   const [csResult, setCsResult] = React.useState<ChinaSplitResult | null>(null);
   const [chn, setChn] = React.useState<ChnroutesStatus | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -76,34 +67,29 @@ export default function OrchestratePage() {
   const pop = devices.find((d) => d.id === popId);
   const cpe = devices.find((d) => d.id === cpeId);
 
-  React.useEffect(() => { setPopPeer(peerOf(cpeOverlay)); }, [cpeOverlay]);
+  React.useEffect(() => { setPopPeer(popPeerOf(cpeOverlay)); }, [cpeOverlay]);
 
-  function tunnelName(): string {
-    return pop ? `wg-${pop.name}`.replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 24) : "wg-pop";
+  function fabricMode(): string {
+    if (mode === "mesh") return "mesh";
+    if (mode === "overseas_direct") return "overseas_direct";
+    if (mode === "smart_split") return "smart_split";
+    return "overseas_direct";
   }
 
-  function buildBody(dryRun: boolean, creds?: { u: string; p: string }) {
-    const popEndpoint = pop ? host(pop.mgmt_address) : "";
-    const tn = tunnelName();
-    const body: Record<string, unknown> = {
+  function fabricBody(dryRun: boolean): Parameters<typeof deployFabric>[0] {
+    const body: Parameters<typeof deployFabric>[0] = {
+      cpe_device_id: cpeId,
+      pop_device_id: popId,
+      mode: fabricMode(),
+      local_wan_gateway: localWan,
+      cpe_overlay: cpeOverlay,
+      pop_public_key: popKey || undefined,
       dry_run: dryRun,
-      tunnel: {
-        name: tn,
-        type: "wireguard",
-        remote_ip: popEndpoint,
-        tunnel_addr: cpeOverlay,
-        public_key: popKey || undefined,
-        listen_port: 13231,
-      },
+      confirm_timeout_sec: 90,
     };
     if (mode === "mesh") {
       body.overlay_routes = internalCidr.split(",").map((s) => s.trim()).filter(Boolean);
-    } else if (mode === "overseas_direct") {
-      body.accel = { mode: "overseas_direct", tunnel_interface: tn, overseas_gateway: popPeer, overseas_dns: ["8.8.8.8", "1.1.1.1"] };
-    } else if (mode === "smart_split") {
-      body.accel = { mode: "smart_split", tunnel_interface: tn, overseas_gateway: popPeer, local_wan_gateway: localWan, domestic_dns: ["223.5.5.5"] };
     }
-    if (creds) { body.username = creds.u; body.password = creds.p; body.confirm_timeout_sec = 90; }
     return body;
   }
 
@@ -111,34 +97,33 @@ export default function OrchestratePage() {
     setError(null);
     if (!cpeId) return setError("请选择接入设备 (CPE)");
     if (mode !== "china_split" && !popId) return setError("请选择接入的骨干 / 出口节点 (POP)");
-    let creds: { u: string; p: string } | undefined;
-    if (!dryRun) {
-      const u = window.prompt("CPE 设备登录用户名（用于下发，不保存）", "admin");
-      if (u === null) return;
-      const p = window.prompt("CPE 设备登录密码") ?? "";
-      creds = { u, p };
-    }
     setBusy(true);
     try {
       if (mode === "china_split") {
-        const body: Record<string, unknown> = {
+        setCsResult(await chinaSplit(cpeId, {
           dry_run: dryRun,
           wan_gateway: localWan,
           overseas_gateway: popPeer,
-        };
-        if (creds) { body.username = creds.u; body.password = creds.p; }
-        setCsResult(await chinaSplit(cpeId, body, currentToken()));
-        setResult(null);
+        }, currentToken()));
+        setFabricResult(null);
       } else {
-        setResult(await orchestrate(cpeId, buildBody(dryRun, creds), currentToken()));
+        setFabricResult(await deployFabric(fabricBody(dryRun), currentToken()));
         setCsResult(null);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "请求失败");
-      setResult(null);
+      setFabricResult(null);
       setCsResult(null);
     } finally { setBusy(false); }
   }
+
+  const previewDesired = fabricResult
+    ? (previewSide === "cpe" ? fabricResult.cpe_desired : fabricResult.pop_desired)
+    : undefined;
+  const previewPlan = fabricResult
+    ? (previewSide === "cpe" ? fabricResult.cpe_plan : fabricResult.pop_plan)
+    : undefined;
+  const usesFabric = mode !== "china_split";
 
   return (
     <div className="space-y-6">
@@ -180,8 +165,8 @@ export default function OrchestratePage() {
           <div className="grid grid-cols-2 gap-3">
             <F label="CPE 隧道地址" v={cpeOverlay} on={setCpeOverlay} mono />
             <F label="POP 对端地址" v={popPeer} on={setPopPeer} mono />
-            <F label="POP 端点(自动)" v={pop ? host(pop.mgmt_address) : "—"} on={() => {}} mono disabled />
-            <F label="隧道接口名(自动)" v={tunnelName()} on={() => {}} mono disabled />
+            <F label="POP 端点(自动)" v={pop ? hostFromMgmt(pop.mgmt_address) : "—"} on={() => {}} mono disabled />
+            <F label="CPE 隧道接口(自动)" v={pop ? tunnelNameForPop(pop.name) : "—"} on={() => {}} mono disabled />
             <div className="col-span-2"><F label="POP WireGuard 公钥（可选）" v={popKey} on={setPopKey} mono placeholder="留空则下发后在 POP 端补充" /></div>
             {mode === "mesh" && <div className="col-span-2"><F label="内网网段（经隧道可达，逗号分隔）" v={internalCidr} on={setInternalCidr} mono /></div>}
             {mode === "smart_split" && <div className="col-span-2"><F label="本地出口网关（国内直连）" v={localWan} on={setLocalWan} mono /></div>}
@@ -209,7 +194,8 @@ export default function OrchestratePage() {
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} 预览
             </button>
             <button onClick={() => run(false)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} 下发到 CPE
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {usesFabric ? "双向下发 CPE + POP" : "下发到 CPE"}
             </button>
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
@@ -219,9 +205,21 @@ export default function OrchestratePage() {
           <CardHeader
             title="生成配置 / 下发结果"
             subtitle={cpe && pop ? `${cpe.name} ⇄ ${pop.name}（${MODES.find((m) => m.id === mode)?.title}）` : "选择 CPE 与 POP 后预览"}
-            action={result?.plan ? <Badge tone={riskTone[result.plan.aggregate_risk] ?? "neutral"}>风险 {result.plan.aggregate_risk}</Badge> : undefined}
+            action={previewPlan ? <Badge tone={riskTone[previewPlan.aggregate_risk] ?? "neutral"}>风险 {previewPlan.aggregate_risk}</Badge> : undefined}
           />
-          {!result && !csResult && <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted"><Workflow className="h-6 w-6 text-primary" />点击「预览」生成 RouterOS 配置</div>}
+          {usesFabric && fabricResult && (
+            <div className="mb-3 flex gap-2">
+              <button onClick={() => setPreviewSide("cpe")}
+                className={`rounded-md border px-2.5 py-1 text-xs ${previewSide === "cpe" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted"}`}>
+                CPE · {cpe?.name ?? "—"}
+              </button>
+              <button onClick={() => setPreviewSide("pop")}
+                className={`rounded-md border px-2.5 py-1 text-xs ${previewSide === "pop" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted"}`}>
+                POP · {pop?.name ?? "—"}
+              </button>
+            </div>
+          )}
+          {!csResult && !fabricResult && <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted"><Workflow className="h-6 w-6 text-primary" />点击「预览」生成 RouterOS 配置</div>}
           {csResult && (
             <div className="space-y-3">
               {csResult.status && (
@@ -239,15 +237,20 @@ export default function OrchestratePage() {
               )}
             </div>
           )}
-          {result?.result && (
-            <div className={`mb-3 rounded-lg border p-3 text-sm ${result.result.status === "committed" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
-              下发结果：{result.result.status}{result.result.reason ? ` · ${result.result.reason}` : ""}
+          {fabricResult?.deploy && (
+            <div className="mb-3 space-y-2 text-sm">
+              <div className={`rounded-lg border p-2 ${fabricResult.deploy.pop_result.status === "committed" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
+                POP：{fabricResult.deploy.pop_result.status}{fabricResult.deploy.pop_result.reason ? ` · ${fabricResult.deploy.pop_result.reason}` : ""}
+              </div>
+              <div className={`rounded-lg border p-2 ${fabricResult.deploy.cpe_result.status === "committed" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
+                CPE：{fabricResult.deploy.cpe_result.status}{fabricResult.deploy.cpe_result.reason ? ` · ${fabricResult.deploy.cpe_result.reason}` : ""}
+              </div>
             </div>
           )}
-          {result?.error && <p className="mb-2 text-sm text-danger">{result.error}</p>}
-          {result?.desired && (
+          {fabricResult?.error && <p className="mb-2 text-sm text-danger">{fabricResult.error}</p>}
+          {previewDesired && (
             <pre className="max-h-[460px] overflow-auto rounded-lg border border-border bg-elevated/50 p-3 text-xs leading-relaxed">
-              {result.desired.statements.map((st) => (
+              {previewDesired.statements.map((st) => (
                 <div key={st.path + st.key} className="mb-1">
                   <span className="text-primary">{st.path}</span> <span className="text-muted">{st.key}</span>
                   {Object.entries(st.attributes).map(([k, v]) => <div key={k} className="pl-4 text-foreground/80">{k} = {v}</div>)}

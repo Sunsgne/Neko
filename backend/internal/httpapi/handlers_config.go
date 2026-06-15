@@ -99,16 +99,39 @@ func (s *Server) handleAccelPropose(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Preview merged tunnel + accel config.
-	desired := configengine.Merge(
-		routing.BuildTunnelState("", proposal.Tunnel),
-		mustAccelState(proposal.Accel),
-	)
-	plan := configengine.ComputeDiff(configengine.State{}, desired, configengine.RiskOptions{})
+
+	var fabric routing.FabricPlan
+	if mode != accel.ModeDomesticDirect && cpe != nil {
+		fabric, err = routing.BuildFabricPlan(cpe, pop, mode, req.LocalWANGateway, req.CpeOverlay, proposal.Tunnel.PublicKey, "", nil)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_profile", err.Error())
+			return
+		}
+		proposal = routing.FabricToProposal(fabric)
+	}
+
+	if mode == accel.ModeDomesticDirect {
+		desired := mustAccelState(proposal.Accel)
+		plan := configengine.ComputeDiff(configengine.State{}, desired, configengine.RiskOptions{})
+		respondData(w, http.StatusOK, map[string]any{
+			"proposal":    proposal,
+			"desired":     desired,
+			"plan":        plan,
+			"cpe_desired": desired,
+			"cpe_plan":    plan,
+		})
+		return
+	}
+
 	respondData(w, http.StatusOK, map[string]any{
-		"proposal": proposal,
-		"desired":  desired,
-		"plan":     plan,
+		"proposal":    proposal,
+		"fabric":      fabric,
+		"desired":     fabric.CPEDesired,
+		"plan":        fabric.CPEPlan,
+		"cpe_desired": fabric.CPEDesired,
+		"pop_desired": fabric.POPDesired,
+		"cpe_plan":    fabric.CPEPlan,
+		"pop_plan":    fabric.POPPlan,
 	})
 }
 
