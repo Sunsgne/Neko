@@ -33,7 +33,7 @@ services:
       - "8222:8222"
 
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.136.11
+    image: victoriametrics/victoria-metrics:v1.145.0
     command: ["-storageDataPath=/vmdata", "-retentionPeriod=3"]
     ports:
       - "8428:8428"
