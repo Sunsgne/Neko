@@ -114,6 +114,14 @@ cd neko && sudo bash scripts/update-deploy.sh
 make deploy-update
 ```
 
+**Demo 服务器**（`203.117.117.196:2333`，目录 `/root/neko`）可通过 GitHub Actions 自动部署：在仓库 Settings → Secrets → Actions 添加 `DEPLOY_PASSWORD`（root SSH 密码），之后每次 push 到 `main` 会自动执行 `scripts/update-deploy.sh`。也可在 Actions 页手动触发 **Deploy Remote**。
+
+手动 SSH 升级：
+
+```bash
+ssh -p 2333 root@203.117.117.196 'cd /root/neko && git pull origin main && bash scripts/update-deploy.sh'
+```
+
 ### 手动部署
 
 ```bash
