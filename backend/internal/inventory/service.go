@@ -374,6 +374,27 @@ func (s *Service) ListSnapshots(ctx context.Context, tenantID, id string, limit 
 	return s.snaps.List(ctx, id, limit)
 }
 
+// GetSnapshot returns a single snapshot's metadata and its captured config
+// state (decoded), scoped to the device/tenant.
+func (s *Service) GetSnapshot(ctx context.Context, tenantID, deviceID, snapshotID string) (*store.ConfigSnapshot, configengine.State, error) {
+	if s.snaps == nil {
+		return nil, configengine.State{}, fmt.Errorf("%w: snapshots not configured", ErrInvalidInput)
+	}
+	if _, err := s.repo.Get(ctx, tenantID, deviceID); err != nil {
+		return nil, configengine.State{}, err
+	}
+	snap, err := s.snaps.Get(ctx, snapshotID)
+	if err != nil {
+		return nil, configengine.State{}, err
+	}
+	if snap.DeviceID != deviceID {
+		return nil, configengine.State{}, store.ErrNotFound
+	}
+	var state configengine.State
+	_ = json.Unmarshal(snap.State, &state)
+	return snap, state, nil
+}
+
 // DriftResult describes config drift between the two most recent snapshots.
 type DriftResult struct {
 	HasBaseline bool              `json:"has_baseline"`

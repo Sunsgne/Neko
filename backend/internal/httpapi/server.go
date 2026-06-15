@@ -128,6 +128,7 @@ func (s *Server) Handler() http.Handler {
 	// Config backup history + drift detection.
 	mux.HandleFunc("POST /api/v1/devices/{id}/snapshot", s.handleSnapshotSave)
 	mux.HandleFunc("GET /api/v1/devices/{id}/snapshots", s.handleSnapshotList)
+	mux.HandleFunc("GET /api/v1/devices/{id}/snapshots/{snapshotId}", s.handleSnapshotGet)
 	mux.HandleFunc("GET /api/v1/devices/{id}/drift", s.handleDrift)
 	mux.HandleFunc("GET /api/v1/devices/{id}/config", s.handleSnapshotConfig)
 	mux.HandleFunc("PUT /api/v1/devices/{id}/config", s.handlePushConfig)

@@ -383,6 +383,21 @@ export async function takeSnapshot(id: string, token?: string): Promise<ConfigSn
   return env.data;
 }
 
+export interface ConfigStatement {
+  path: string;
+  key: string;
+  attributes: Record<string, string>;
+}
+
+export interface ConfigSnapshotDetail extends ConfigSnapshot {
+  state: { statements: ConfigStatement[] };
+}
+
+export async function getSnapshot(deviceId: string, snapshotId: string, token?: string): Promise<ConfigSnapshotDetail> {
+  const env = await request<ConfigSnapshotDetail>("GET", `/api/v1/devices/${deviceId}/snapshots/${snapshotId}`, { token });
+  return env.data;
+}
+
 export interface Candidate {
   address: string;
   board: string;

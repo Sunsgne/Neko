@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **配置备份无法查看**：快照仅存了 `state`(JSON)但无接口返回内容,前端列表只显示「时间 + N 条配置」无法展开。新增 `GET /devices/{id}/snapshots/{snapshotId}`(返回完整 `state.statements`)与 `inventory.GetSnapshot`(设备/租户校验),前端快照行可点击展开,按 RouterOS 段分组显示配置项并支持关键字过滤。已在模拟器上端到端验证(enroll→snapshot→list→查看内容,含 404 校验)。
+
 ### Added
 - **国内外加速·路由表分流(chnroutes route-table split)**:
   - `chnroutes` 包:从 chnroutes2(默认 `misakaio/chnroutes2`)拉取并缓存国内 IPv4 网段表(解析/去重/校验,支持自定义源 URL)。
