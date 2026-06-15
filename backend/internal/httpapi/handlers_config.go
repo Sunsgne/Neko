@@ -6,6 +6,8 @@ import (
 	"github.com/neko/sdwan/backend/internal/accel"
 	"github.com/neko/sdwan/backend/internal/configengine"
 	"github.com/neko/sdwan/backend/internal/routeros"
+	"github.com/neko/sdwan/backend/internal/routing"
+	"github.com/neko/sdwan/backend/internal/store"
 )
 
 // handleAccelModes lists the available acceleration business modes.
@@ -38,6 +40,84 @@ func (s *Server) handleAccelPreview(w http.ResponseWriter, r *http.Request) {
 		"state": state,
 		"plan":  plan,
 	})
+}
+
+type accelProposeRequest struct {
+	CpeDeviceID     string `json:"cpe_device_id"`
+	PopDeviceID     string `json:"pop_device_id"`
+	Mode            string `json:"mode"`
+	LocalWANGateway string `json:"local_wan_gateway,omitempty"`
+	CpeOverlay      string `json:"cpe_overlay,omitempty"`
+	PopPublicKey    string `json:"pop_public_key,omitempty"`
+}
+
+// handleAccelPropose generates WireGuard tunnel negotiation parameters (keys,
+// overlay addressing, POP endpoint) plus the acceleration profile for CPE→POP.
+func (s *Server) handleAccelPropose(w http.ResponseWriter, r *http.Request) {
+	var req accelProposeRequest
+	if err := decodeJSON(r, &req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_json", "request body is not valid JSON")
+		return
+	}
+	if req.PopDeviceID == "" {
+		respondError(w, http.StatusBadRequest, "invalid_input", "pop_device_id required")
+		return
+	}
+	tenant := tenantFrom(r.Context())
+	pop, err := s.inventory.Get(r.Context(), tenant, req.PopDeviceID)
+	if err != nil {
+		respondServiceError(w, err)
+		return
+	}
+	var cpe *store.Device
+	if req.CpeDeviceID != "" {
+		cpe, err = s.inventory.Get(r.Context(), tenant, req.CpeDeviceID)
+		if err != nil {
+			respondServiceError(w, err)
+			return
+		}
+	}
+	mode := accel.Mode(req.Mode)
+	if mode == "" {
+		mode = accel.ModeOverseasDirect
+	}
+	proposal, err := routing.ProposeAccelToPOP(cpe, pop, mode, req.LocalWANGateway, req.CpeOverlay)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_profile", err.Error())
+		return
+	}
+	if req.PopPublicKey != "" {
+		proposal.Tunnel.PublicKey = req.PopPublicKey
+	} else if pop.Enrolled {
+		if items, err := s.inventory.RESTList(r.Context(), tenant, pop.ID, "/interface/wireguard", "", ""); err == nil {
+			for _, it := range items {
+				if pk, ok := it["public-key"].(string); ok && pk != "" {
+					proposal.PopPublicKeyHint = pk
+					proposal.Tunnel.PublicKey = pk
+					break
+				}
+			}
+		}
+	}
+	// Preview merged tunnel + accel config.
+	desired := configengine.Merge(
+		routing.BuildTunnelState("", proposal.Tunnel),
+		mustAccelState(proposal.Accel),
+	)
+	plan := configengine.ComputeDiff(configengine.State{}, desired, configengine.RiskOptions{})
+	respondData(w, http.StatusOK, map[string]any{
+		"proposal": proposal,
+		"desired":  desired,
+		"plan":     plan,
+	})
+}
+
+func mustAccelState(p accel.Profile) configengine.State {
+	st, err := accel.BuildConfig(p)
+	if err != nil {
+		return configengine.State{}
+	}
+	return st
 }
 
 // handleConfigSections returns the catalog of fully-managed RouterOS sections.

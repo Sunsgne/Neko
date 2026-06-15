@@ -23,6 +23,7 @@ type Tunnel struct {
 	RemoteIP   string     `json:"remote_ip"`
 	TunnelAddr string     `json:"tunnel_addr"` // address on the overlay, e.g. 100.64.0.1/30
 	PublicKey  string     `json:"public_key,omitempty"`
+	PrivateKey string     `json:"private_key,omitempty"` // CPE-side WG private key
 	ListenPort int        `json:"listen_port,omitempty"`
 }
 
@@ -55,7 +56,7 @@ func BuildTunnelState(vrf string, t Tunnel) configengine.State {
 		sts = append(sts,
 			configengine.Statement{
 				Path: "/interface/wireguard", Key: t.Name,
-				Attributes: map[string]string{"name": t.Name, "listen-port": itoa(port)},
+				Attributes: wgIfaceAttrs(t.Name, port, t.PrivateKey),
 			},
 			configengine.Statement{
 				Path: "/interface/wireguard/peers", Key: t.Name + "-peer",
@@ -90,6 +91,14 @@ func BuildTunnelState(vrf string, t Tunnel) configengine.State {
 	}
 
 	return configengine.State{Statements: sts}
+}
+
+func wgIfaceAttrs(name string, port int, privateKey string) map[string]string {
+	attrs := map[string]string{"name": name, "listen-port": itoa(port)}
+	if privateKey != "" {
+		attrs["private-key"] = privateKey
+	}
+	return attrs
 }
 
 func itoa(n int) string {

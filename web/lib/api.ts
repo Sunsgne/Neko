@@ -250,6 +250,47 @@ export async function previewAccel(profile: Record<string, unknown>, token?: str
   return env.data;
 }
 
+export interface AccelProposal {
+  tunnel: {
+    name: string;
+    type: string;
+    remote_ip: string;
+    tunnel_addr: string;
+    public_key?: string;
+    private_key?: string;
+    listen_port?: number;
+  };
+  cpe_private_key: string;
+  cpe_public_key: string;
+  pop_peer: string;
+  pop_endpoint: string;
+  tunnel_interface: string;
+  cpe_overlay: string;
+  accel: Record<string, unknown>;
+  pop_public_key_hint?: string;
+}
+
+export interface AccelProposeResult {
+  proposal: AccelProposal;
+  desired: { statements: Array<{ path: string; key: string; attributes: Record<string, string> }> };
+  plan: { changes: Array<{ type: string; path: string; key: string; risk: string }>; aggregate_risk: string };
+}
+
+export async function proposeAccel(
+  body: {
+    cpe_device_id: string;
+    pop_device_id?: string;
+    mode: string;
+    local_wan_gateway?: string;
+    cpe_overlay?: string;
+    pop_public_key?: string;
+  },
+  token?: string,
+): Promise<AccelProposeResult> {
+  const env = await request<AccelProposeResult>("POST", "/api/v1/accel/propose", { token, body });
+  return env.data;
+}
+
 export async function listConfigSections(token?: string): Promise<string[]> {
   const env = await request<string[]>("GET", "/api/v1/config/sections", { token });
   return env.data ?? [];
