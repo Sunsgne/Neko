@@ -15,6 +15,7 @@ import { currentToken } from "@/lib/session";
 const MODES = [
   { id: "overseas_direct", title: "海外运营（直连）", desc: "全量流量经 POP 出口直连，不做分流" },
   { id: "china_split", title: "国内外分流（chnroutes）", desc: "国内走路由表本地 WAN，海外 0/1+128/1 经 POP 隧道" },
+  { id: "smart_split", title: "智能分流（地址组）", desc: "国内直连本地 WAN，海外地址表走 POP 隧道" },
   { id: "domestic_direct", title: "国内直连", desc: "全量走本地出口（无需 POP 隧道）" },
 ] as const;
 
@@ -217,7 +218,7 @@ export default function AccelPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">加速业务配置</h1>
         <p className="mt-1 text-sm text-muted">
-          选择 CPE 与骨干 POP，自动生成 WireGuard 隧道，双侧预览后一键下发（托管凭据，无需手填密码）
+          配置海外直连、国内外分流等加速策略。客户内网站点互通请使用「组网下发」页。
         </p>
       </div>
 
@@ -271,7 +272,7 @@ export default function AccelPage() {
             </>
           )}
 
-          {(isChinaSplit || mode === "domestic_direct") && (
+          {(isChinaSplit || mode === "domestic_direct" || mode === "smart_split") && (
             <Field label="本地 WAN 网关（国内直连出口）" value={localWan} onChange={setLocalWan} mono />
           )}
 

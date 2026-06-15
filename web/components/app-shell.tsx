@@ -31,7 +31,7 @@ const nav = [
   { href: "/devices", label: "设备", icon: Router },
   { href: "/discover", label: "发现纳管", icon: Radar },
   { href: "/backbone", label: "骨干节点", icon: Server },
-  { href: "/orchestrate", label: "编排下发", icon: Workflow },
+  { href: "/orchestrate", label: "组网下发", icon: Workflow },
   { href: "/config", label: "远程配置", icon: SlidersHorizontal },
   { href: "/accel", label: "加速", icon: Rocket },
   { href: "/tenants", label: "租户", icon: Building2 },

@@ -1,23 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Workflow, Eye, Send, Loader2, Server, Router as RouterIcon, RefreshCw, ListTree } from "lucide-react";
+import { Workflow, Eye, Send, Loader2, Server, Router as RouterIcon } from "lucide-react";
 import { Card, CardHeader, Badge } from "@/components/ui";
 import {
-  listDevices, deployFabric, getChnroutes, refreshChnroutes, chinaSplit,
-  type Device, type FabricDeployResult, type ChnroutesStatus, type ChinaSplitResult, ApiError,
+  listDevices, deployFabric,
+  type Device, type FabricDeployResult, ApiError,
 } from "@/lib/api";
 import { hostFromMgmt, popPeerOf, tunnelNameForPop } from "@/lib/tunnel";
 import { currentToken } from "@/lib/session";
-
-type Mode = "mesh" | "overseas_direct" | "smart_split" | "china_split";
-
-const MODES: { id: Mode; title: string; desc: string }[] = [
-  { id: "mesh", title: "组网（站点入网）", desc: "CPE 经隧道接入骨干 POP，打通内网网段" },
-  { id: "overseas_direct", title: "加速·海外直连", desc: "全量流量经该 POP 出口直连（不分流）" },
-  { id: "china_split", title: "加速·国内外分流（chnroutes）", desc: "国内走路由表本地直连，海外 0/1+128/1 走隧道" },
-  { id: "smart_split", title: "加速·智能分流（地址组）", desc: "基于地址组标记，海外走 POP 出口" },
-];
 
 const riskTone: Record<string, "success" | "primary" | "warning" | "danger"> = {
   low: "success", medium: "primary", high: "warning", critical: "danger",
@@ -29,38 +20,21 @@ export default function OrchestratePage() {
   const [devices, setDevices] = React.useState<Device[]>([]);
   const [cpeId, setCpeId] = React.useState("");
   const [popId, setPopId] = React.useState("");
-  const [mode, setMode] = React.useState<Mode>("mesh");
   const [cpeOverlay, setCpeOverlay] = React.useState("100.64.0.2/30");
   const [popPeer, setPopPeer] = React.useState("100.64.0.1");
   const [popKey, setPopKey] = React.useState("");
   const [internalCidr, setInternalCidr] = React.useState("10.0.0.0/8");
-  const [localWan, setLocalWan] = React.useState("192.168.1.1");
 
   const [fabricResult, setFabricResult] = React.useState<FabricDeployResult | null>(null);
   const [previewSide, setPreviewSide] = React.useState<PreviewSide>("cpe");
-  const [csResult, setCsResult] = React.useState<ChinaSplitResult | null>(null);
-  const [chn, setChn] = React.useState<ChnroutesStatus | null>(null);
-  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
     listDevices(currentToken()).then((d) => {
-      const managed = d.filter((x) => x.trust_state === "managed");
-      setDevices(managed);
+      setDevices(d.filter((x) => x.trust_state === "managed"));
     }).catch(() => setDevices([]));
-    getChnroutes(currentToken()).then(setChn).catch(() => setChn(null));
   }, []);
-
-  async function doRefreshChn() {
-    setRefreshing(true);
-    setError(null);
-    try {
-      setChn(await refreshChnroutes(undefined, currentToken()));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "刷新国内路由表失败");
-    } finally { setRefreshing(false); }
-  }
 
   const cpes = devices.filter((d) => d.role !== "backbone" && d.role !== "gateway");
   const pops = devices.filter((d) => d.role === "backbone" || d.role === "gateway");
@@ -69,51 +43,29 @@ export default function OrchestratePage() {
 
   React.useEffect(() => { setPopPeer(popPeerOf(cpeOverlay)); }, [cpeOverlay]);
 
-  function fabricMode(): string {
-    if (mode === "mesh") return "mesh";
-    if (mode === "overseas_direct") return "overseas_direct";
-    if (mode === "smart_split") return "smart_split";
-    return "overseas_direct";
-  }
-
   function fabricBody(dryRun: boolean): Parameters<typeof deployFabric>[0] {
-    const body: Parameters<typeof deployFabric>[0] = {
+    return {
       cpe_device_id: cpeId,
       pop_device_id: popId,
-      mode: fabricMode(),
-      local_wan_gateway: localWan,
+      mode: "mesh",
       cpe_overlay: cpeOverlay,
       pop_public_key: popKey || undefined,
+      overlay_routes: internalCidr.split(",").map((s) => s.trim()).filter(Boolean),
       dry_run: dryRun,
       confirm_timeout_sec: 90,
     };
-    if (mode === "mesh") {
-      body.overlay_routes = internalCidr.split(",").map((s) => s.trim()).filter(Boolean);
-    }
-    return body;
   }
 
   async function run(dryRun: boolean) {
     setError(null);
     if (!cpeId) return setError("请选择接入设备 (CPE)");
-    if (mode !== "china_split" && !popId) return setError("请选择接入的骨干 / 出口节点 (POP)");
+    if (!popId) return setError("请选择接入的骨干 / 出口节点 (POP)");
     setBusy(true);
     try {
-      if (mode === "china_split") {
-        setCsResult(await chinaSplit(cpeId, {
-          dry_run: dryRun,
-          wan_gateway: localWan,
-          overseas_gateway: popPeer,
-        }, currentToken()));
-        setFabricResult(null);
-      } else {
-        setFabricResult(await deployFabric(fabricBody(dryRun), currentToken()));
-        setCsResult(null);
-      }
+      setFabricResult(await deployFabric(fabricBody(dryRun), currentToken()));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "请求失败");
       setFabricResult(null);
-      setCsResult(null);
     } finally { setBusy(false); }
   }
 
@@ -123,18 +75,19 @@ export default function OrchestratePage() {
   const previewPlan = fabricResult
     ? (previewSide === "cpe" ? fabricResult.cpe_plan : fabricResult.pop_plan)
     : undefined;
-  const usesFabric = mode !== "china_split";
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">站点编排 · 一键入网</h1>
-        <p className="mt-1 text-sm text-muted">将客户站点 (CPE) 经隧道接入骨干 POP，按业务选择组网或加速，预览后一键下发(无需登录设备)</p>
+        <h1 className="text-2xl font-semibold tracking-tight">组网下发 · 内网打通</h1>
+        <p className="mt-1 text-sm text-muted">
+          将客户站点 (CPE) 经 WireGuard 隧道接入骨干 POP，宣告内网网段实现站点间互通。加速与分流请前往「加速」页配置。
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="space-y-4">
-          <CardHeader title="1 · 站点与接入节点" subtitle="选择 CPE 与它要接入的骨干 / 出口节点" />
+          <CardHeader title="1 · 站点与接入节点" subtitle="选择 CPE 与它要接入的骨干 POP" />
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted"><RouterIcon className="h-3.5 w-3.5" /> 接入设备 (CPE)</label>
             <select value={cpeId} onChange={(e) => setCpeId(e.target.value)} className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-primary">
@@ -143,23 +96,16 @@ export default function OrchestratePage() {
             </select>
           </div>
           <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted"><Server className="h-3.5 w-3.5" /> 接入骨干 / 出口节点 (POP)</label>
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted"><Server className="h-3.5 w-3.5" /> 接入骨干节点 (POP)</label>
             <select value={popId} onChange={(e) => setPopId(e.target.value)} className="w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm outline-none focus:border-primary">
               <option value="">请选择…</option>
               {pops.map((d) => <option key={d.id} value={d.id}>{d.name} · {d.region || d.role} · {d.mgmt_address}</option>)}
             </select>
-            {pops.length === 0 && <p className="mt-1 text-xs text-warning">暂无骨干/出口节点，请先在「骨干节点」登记。</p>}
+            {pops.length === 0 && <p className="mt-1 text-xs text-warning">暂无骨干节点，请先在「骨干节点」登记。</p>}
           </div>
 
-          <CardHeader title="2 · 业务模式" />
-          <div className="grid grid-cols-1 gap-2">
-            {MODES.map((m) => (
-              <button key={m.id} onClick={() => setMode(m.id)} className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${mode === m.id ? "border-primary bg-primary/10" : "border-border hover:border-border"}`}>
-                <div className={mode === m.id ? "font-medium text-primary" : "font-medium"}>{m.title}</div>
-                <div className="text-xs text-muted">{m.desc}</div>
-              </button>
-            ))}
-          </div>
+          <CardHeader title="2 · 内网网段" subtitle="经隧道可达的客户内网前缀，逗号分隔" />
+          <F label="内网网段（CIDR）" v={internalCidr} on={setInternalCidr} mono placeholder="10.0.0.0/8, 192.168.0.0/16" />
 
           <CardHeader title="3 · 隧道参数" subtitle="WireGuard 隧道，端点取自所选 POP" />
           <div className="grid grid-cols-2 gap-3">
@@ -168,26 +114,7 @@ export default function OrchestratePage() {
             <F label="POP 端点(自动)" v={pop ? hostFromMgmt(pop.mgmt_address) : "—"} on={() => {}} mono disabled />
             <F label="CPE 隧道接口(自动)" v={pop ? tunnelNameForPop(pop.name) : "—"} on={() => {}} mono disabled />
             <div className="col-span-2"><F label="POP WireGuard 公钥（可选）" v={popKey} on={setPopKey} mono placeholder="留空则下发后在 POP 端补充" /></div>
-            {mode === "mesh" && <div className="col-span-2"><F label="内网网段（经隧道可达，逗号分隔）" v={internalCidr} on={setInternalCidr} mono /></div>}
-            {mode === "smart_split" && <div className="col-span-2"><F label="本地出口网关（国内直连）" v={localWan} on={setLocalWan} mono /></div>}
-            {mode === "china_split" && <div className="col-span-2"><F label="国内直连出口网关 / 接口（WAN）" v={localWan} on={setLocalWan} mono /></div>}
           </div>
-
-          {mode === "china_split" && (
-            <div className="rounded-lg border border-border bg-elevated/40 p-3 text-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-medium"><ListTree className="h-4 w-4 text-primary" /> 国内路由表 (chnroutes)</div>
-                <button onClick={doRefreshChn} disabled={refreshing} className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:border-primary disabled:opacity-60">
-                  {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} 刷新
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-muted">
-                {chn?.loaded
-                  ? `已加载 ${chn.count} 条国内网段 · 海外经 ${popPeer} 走 0.0.0.0/1 + 128.0.0.0/1`
-                  : "尚未加载，下发或点「刷新」将从 chnroutes2 拉取国内网段"}
-              </p>
-            </div>
-          )}
 
           <div className="flex gap-2">
             <button onClick={() => run(true)} disabled={busy} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary disabled:opacity-60">
@@ -195,7 +122,7 @@ export default function OrchestratePage() {
             </button>
             <button onClick={() => run(false)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {usesFabric ? "双向下发 CPE + POP" : "下发到 CPE"}
+              双向下发 CPE + POP
             </button>
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
@@ -204,10 +131,10 @@ export default function OrchestratePage() {
         <Card>
           <CardHeader
             title="生成配置 / 下发结果"
-            subtitle={cpe && pop ? `${cpe.name} ⇄ ${pop.name}（${MODES.find((m) => m.id === mode)?.title}）` : "选择 CPE 与 POP 后预览"}
+            subtitle={cpe && pop ? `${cpe.name} ⇄ ${pop.name}（组网 · 内网打通）` : "选择 CPE 与 POP 后预览"}
             action={previewPlan ? <Badge tone={riskTone[previewPlan.aggregate_risk] ?? "neutral"}>风险 {previewPlan.aggregate_risk}</Badge> : undefined}
           />
-          {usesFabric && fabricResult && (
+          {fabricResult && (
             <div className="mb-3 flex gap-2">
               <button onClick={() => setPreviewSide("cpe")}
                 className={`rounded-md border px-2.5 py-1 text-xs ${previewSide === "cpe" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted"}`}>
@@ -219,22 +146,10 @@ export default function OrchestratePage() {
               </button>
             </div>
           )}
-          {!csResult && !fabricResult && <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted"><Workflow className="h-6 w-6 text-primary" />点击「预览」生成 RouterOS 配置</div>}
-          {csResult && (
-            <div className="space-y-3">
-              {csResult.status && (
-                <div className={`rounded-lg border p-3 text-sm ${csResult.status === "delivered" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
-                  下发结果：{csResult.status}{csResult.error ? ` · ${csResult.error}` : ""}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 text-xs">
-                <Badge tone="primary">总路由 {csResult.route_count ?? 0}</Badge>
-                <Badge tone="success">国内 {csResult.domestic_count ?? 0}</Badge>
-                <Badge tone="neutral">海外 {(csResult.overseas_halves ?? []).join(" / ")}</Badge>
-              </div>
-              {csResult.script && (
-                <pre className="max-h-[420px] overflow-auto rounded-lg border border-border bg-elevated/50 p-3 text-xs leading-relaxed">{csResult.script}</pre>
-              )}
+          {!fabricResult && (
+            <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted">
+              <Workflow className="h-6 w-6 text-primary" />
+              点击「预览」生成 WireGuard 隧道与内网路由配置
             </div>
           )}
           {fabricResult?.deploy && (
