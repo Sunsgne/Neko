@@ -87,11 +87,21 @@ func (s *Server) handleChinaSplit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := routeros.NewClient(routeros.Target{
-		Address:  dev.MgmtAddress,
-		Username: req.Username,
-		Secret:   req.Password,
-	})
+	var client *routeros.Client
+	if req.Username != "" {
+		client = routeros.NewClient(routeros.Target{
+			Address:  dev.MgmtAddress,
+			Username: req.Username,
+			Secret:   req.Password,
+		})
+	} else {
+		target, err := s.inventory.TargetForDevice(r.Context(), dev)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "not_enrolled", err.Error())
+			return
+		}
+		client = routeros.NewClient(target)
+	}
 	out, err := client.RunScript(r.Context(), "neko-china-split", script)
 	if err != nil {
 		respondData(w, http.StatusOK, map[string]any{

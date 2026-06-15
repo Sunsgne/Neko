@@ -318,6 +318,11 @@ func (s *Service) SetTrustState(ctx context.Context, tenantID, id string, to sto
 	return d, nil
 }
 
+// TargetForDevice resolves enrolled credentials for a device.
+func (s *Service) TargetForDevice(ctx context.Context, d *store.Device) (routeros.Target, error) {
+	return s.targetForDevice(ctx, d)
+}
+
 // targetForDevice resolves a device's stored credentials into a routeros.Target.
 func (s *Service) targetForDevice(ctx context.Context, d *store.Device) (routeros.Target, error) {
 	if s.creds == nil || s.sealer == nil {
@@ -506,6 +511,36 @@ func (s *Service) RestoreSnapshot(ctx context.Context, tenantID, deviceID, snaps
 		return configengine.ApplyResult{}, configengine.Plan{}, err
 	}
 	return s.ApplyDesiredConfig(ctx, tenantID, deviceID, state, configengine.ApplyOptions{})
+}
+
+// FabricDeployResult is the outcome of bidirectional CPE + POP delivery.
+type FabricDeployResult struct {
+	POPResult configengine.ApplyResult `json:"pop_result"`
+	POPPlan   configengine.Plan        `json:"pop_plan"`
+	CPEResult configengine.ApplyResult `json:"cpe_result"`
+	CPEPlan   configengine.Plan        `json:"cpe_plan"`
+	Error     string                   `json:"error,omitempty"`
+}
+
+// FabricDeploy applies desired config to POP first, then CPE, using enrolled
+// credentials. POP must be ready before the CPE brings up its tunnel.
+func (s *Service) FabricDeploy(ctx context.Context, tenantID, cpeID, popID string, cpeDesired, popDesired configengine.State, opts configengine.ApplyOptions) (FabricDeployResult, error) {
+	out := FabricDeployResult{}
+	popRes, popPlan, err := s.ApplyDesiredConfig(ctx, tenantID, popID, popDesired, opts)
+	out.POPResult = popRes
+	out.POPPlan = popPlan
+	if err != nil {
+		out.Error = err.Error()
+		return out, err
+	}
+	cpeRes, cpePlan, err := s.ApplyDesiredConfig(ctx, tenantID, cpeID, cpeDesired, opts)
+	out.CPEResult = cpeRes
+	out.CPEPlan = cpePlan
+	if err != nil {
+		out.Error = err.Error()
+		return out, err
+	}
+	return out, nil
 }
 
 // DriftResult describes config drift between the two most recent snapshots.

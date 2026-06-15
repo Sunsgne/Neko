@@ -149,6 +149,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/accel/modes", s.handleAccelModes)
 	mux.HandleFunc("POST /api/v1/accel/preview", s.handleAccelPreview)
 	mux.HandleFunc("POST /api/v1/accel/propose", s.handleAccelPropose)
+	mux.HandleFunc("POST /api/v1/fabric/deploy", s.handleFabricDeploy)
 	mux.HandleFunc("GET /api/v1/config/sections", s.handleConfigSections)
 	mux.HandleFunc("GET /api/v1/config/catalog", s.handleConfigCatalog)
 

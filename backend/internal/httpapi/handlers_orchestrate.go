@@ -88,15 +88,27 @@ func (s *Server) handleOrchestrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	opts := configengine.ApplyOptions{ConfirmTimeoutSec: req.ConfirmTimeout}
+	if req.MaxRisk != "" {
+		opts.MaxRisk = configengine.Risk(req.MaxRisk)
+	}
+
+	if req.Username == "" {
+		res, plan, err := s.inventory.ApplyDesiredConfig(r.Context(), tenantFrom(r.Context()), dev.ID, desired, opts)
+		if err != nil {
+			respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan, "error": err.Error()})
+			return
+		}
+		s.record(r.Context(), "orchestrate", "device", dev.ID, map[string]string{"status": res.Status})
+		respondData(w, http.StatusOK, map[string]any{"result": res, "plan": plan})
+		return
+	}
+
 	applier := routeros.NewApplier(routeros.Target{
 		Address:  dev.MgmtAddress,
 		Username: req.Username,
 		Secret:   req.Password,
 	}, nil)
-	opts := configengine.ApplyOptions{ConfirmTimeoutSec: req.ConfirmTimeout}
-	if req.MaxRisk != "" {
-		opts.MaxRisk = configengine.Risk(req.MaxRisk)
-	}
 
 	res, plan, err := configengine.Execute(r.Context(), applier, nil, desired, opts)
 	if err != nil {

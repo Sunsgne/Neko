@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Rocket, Loader2, Eye, Send, Server, Router as RouterIcon, RefreshCw, KeyRound } from "lucide-react";
 import { Card, CardHeader, Badge } from "@/components/ui";
 import {
-  listDevices, proposeAccel, orchestrate,
-  type Device, type AccelProposal, type OrchestrateResult, ApiError,
+  listDevices, proposeAccel, deployFabric, orchestrate,
+  type Device, type AccelProposal, type FabricDeployResult, type ConfigState, type ConfigPlan, ApiError,
 } from "@/lib/api";
 import { hostFromMgmt, popPeerOf, tunnelNameForPop } from "@/lib/tunnel";
 import { currentToken } from "@/lib/session";
@@ -18,6 +18,7 @@ const MODES = [
 ] as const;
 
 type Mode = (typeof MODES)[number]["id"];
+type PreviewSide = "cpe" | "pop";
 
 const riskTone: Record<string, "success" | "primary" | "warning" | "danger"> = {
   low: "success", medium: "primary", high: "warning", critical: "danger",
@@ -34,11 +35,13 @@ export default function AccelPage() {
   const [popKey, setPopKey] = React.useState("");
   const [cpePriv, setCpePriv] = React.useState("");
   const [cpePub, setCpePub] = React.useState("");
+  const [popIface, setPopIface] = React.useState("");
   const [tunnel, setTunnel] = React.useState("");
   const [popEndpoint, setPopEndpoint] = React.useState("");
+  const [previewSide, setPreviewSide] = React.useState<PreviewSide>("cpe");
 
   const [proposal, setProposal] = React.useState<AccelProposal | null>(null);
-  const [result, setResult] = React.useState<OrchestrateResult | null>(null);
+  const [result, setResult] = React.useState<FabricDeployResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -66,7 +69,7 @@ export default function AccelPage() {
     }
   }, [pop]);
 
-  function applyProposal(p: AccelProposal) {
+  function applyProposal(p: AccelProposal, fabric?: FabricDeployResult["fabric"]) {
     setProposal(p);
     setCpeOverlay(p.cpe_overlay);
     setPopPeer(p.pop_peer);
@@ -74,8 +77,23 @@ export default function AccelPage() {
     setPopEndpoint(p.pop_endpoint);
     setCpePriv(p.cpe_private_key);
     setCpePub(p.cpe_public_key);
+    if (fabric?.link.pop_interface) setPopIface(fabric.link.pop_interface);
     if (p.pop_public_key_hint) setPopKey(p.pop_public_key_hint);
     if (p.tunnel.public_key) setPopKey(p.tunnel.public_key);
+  }
+
+  function fabricBody(dryRun: boolean) {
+    return {
+      cpe_device_id: cpeId,
+      pop_device_id: popId,
+      mode,
+      local_wan_gateway: localWan,
+      cpe_overlay: cpeOverlay || undefined,
+      pop_public_key: popKey || undefined,
+      cpe_public_key: cpePub || undefined,
+      dry_run: dryRun,
+      confirm_timeout_sec: 90,
+    };
   }
 
   async function generateWG() {
@@ -92,35 +110,19 @@ export default function AccelPage() {
         cpe_overlay: cpeOverlay || undefined,
         pop_public_key: popKey || undefined,
       }, currentToken());
-      applyProposal(res.proposal);
-      setResult({ dry_run: true, desired: res.desired, plan: res.plan });
+      applyProposal(res.proposal, res.fabric);
+      setResult({
+        dry_run: true,
+        fabric: res.fabric,
+        proposal: res.proposal,
+        cpe_desired: res.cpe_desired,
+        pop_desired: res.pop_desired,
+        cpe_plan: res.cpe_plan,
+        pop_plan: res.pop_plan,
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "WG 协商生成失败");
     } finally { setBusy(false); }
-  }
-
-  function buildOrchestrateBody(dryRun: boolean, creds?: { u: string; p: string }) {
-    const body: Record<string, unknown> = { dry_run: dryRun };
-    if (needsPop && proposal) {
-      body.tunnel = {
-        ...proposal.tunnel,
-        tunnel_addr: cpeOverlay || proposal.cpe_overlay,
-        public_key: popKey || proposal.tunnel.public_key || undefined,
-        private_key: cpePriv || proposal.cpe_private_key,
-        remote_ip: popEndpoint || proposal.pop_endpoint,
-        name: tunnel || proposal.tunnel_interface,
-      };
-      body.accel = {
-        ...proposal.accel,
-        tunnel_interface: tunnel || proposal.tunnel_interface,
-        overseas_gateway: popPeer || proposal.pop_peer,
-        local_wan_gateway: localWan,
-      };
-    } else if (mode === "domestic_direct") {
-      body.accel = { mode: "domestic_direct", local_wan_gateway: localWan, domestic_dns: ["223.5.5.5", "114.114.114.114"] };
-    }
-    if (creds) { body.username = creds.u; body.password = creds.p; body.confirm_timeout_sec = 90; }
-    return body;
   }
 
   async function run(dryRun: boolean) {
@@ -128,27 +130,49 @@ export default function AccelPage() {
     if (!cpeId) return setError("请选择客户侧设备 (CPE)");
     if (needsPop && !popId) return setError("请选择 POP");
     if (needsPop && !proposal && dryRun) return setError("请先点「生成 WG 协商参数」");
-    let creds: { u: string; p: string } | undefined;
-    if (!dryRun) {
-      const u = window.prompt("CPE 设备登录用户名（用于下发，不保存）", "admin");
-      if (u === null) return;
-      creds = { u, p: window.prompt("CPE 设备登录密码") ?? "" };
-    }
     setBusy(true);
     try {
-      setResult(await orchestrate(cpeId, buildOrchestrateBody(dryRun, creds), currentToken()));
+      if (needsPop) {
+        setResult(await deployFabric(fabricBody(dryRun), currentToken()));
+      } else {
+        const orch = await orchestrate(cpeId, {
+          dry_run: dryRun,
+          accel: { mode: "domestic_direct", local_wan_gateway: localWan, domestic_dns: ["223.5.5.5", "114.114.114.114"] },
+          confirm_timeout_sec: 90,
+        }, currentToken());
+        setResult({
+          dry_run: dryRun,
+          cpe_desired: orch.desired,
+          cpe_plan: orch.plan,
+          deploy: orch.result ? {
+            pop_result: { status: "skipped" },
+            pop_plan: { changes: [], aggregate_risk: "low" },
+            cpe_result: orch.result,
+            cpe_plan: orch.plan ?? { changes: [], aggregate_risk: "low" },
+            error: orch.error,
+          } : undefined,
+          error: orch.error,
+        });
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "请求失败");
       setResult(null);
     } finally { setBusy(false); }
   }
 
+  const previewDesired: ConfigState | undefined = needsPop
+    ? (previewSide === "cpe" ? result?.cpe_desired : result?.pop_desired)
+    : result?.cpe_desired;
+  const previewPlan: ConfigPlan | undefined = needsPop
+    ? (previewSide === "cpe" ? result?.cpe_plan : result?.pop_plan)
+    : result?.cpe_plan;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">加速业务配置</h1>
         <p className="mt-1 text-sm text-muted">
-          选择 CPE 与骨干 POP，自动生成 WireGuard 隧道协商参数，预览后一键下发加速策略
+          选择 CPE 与骨干 POP，自动生成 WireGuard 隧道协商参数，双侧预览后一键下发（POP 先、CPE 后，使用托管凭据）
         </p>
         <p className="mt-1 text-xs text-muted">
           含国内外分流(chnroutes)请使用
@@ -182,12 +206,13 @@ export default function AccelPage() {
 
           {needsPop && (
             <>
-              <CardHeader title="2 · WireGuard 隧道（到 POP）" subtitle="点下方按钮自动生成密钥与 overlay 地址" />
+              <CardHeader title="2 · WireGuard 隧道（CPE ↔ POP）" subtitle="点下方按钮自动生成双侧密钥与 overlay 地址" />
               <div className="grid grid-cols-2 gap-3">
-                <ReadonlyField label="隧道接口（自动）" value={tunnel || (pop ? tunnelNameForPop(pop.name) : "—")} />
+                <ReadonlyField label="CPE 隧道接口" value={tunnel || (pop ? tunnelNameForPop(pop.name) : "—")} />
+                <ReadonlyField label="POP 隧道接口" value={popIface || (cpe ? `wg-cpe-${cpe.name}`.slice(0, 24) : "—")} />
                 <ReadonlyField label="POP 端点（自动）" value={popEndpoint || (pop ? hostFromMgmt(pop.mgmt_address) : "—")} />
+                <ReadonlyField label="POP 对端地址" value={popPeer || "生成后自动填充"} />
                 <Field label="CPE 隧道地址" value={cpeOverlay} onChange={setCpeOverlay} mono placeholder="生成后自动填充" />
-                <Field label="POP 对端地址" value={popPeer} onChange={setPopPeer} mono placeholder="生成后自动填充" />
                 <div className="col-span-2">
                   <Field label="POP WireGuard 公钥" value={popKey} onChange={setPopKey} mono
                     placeholder="可自动从 POP 读取，或下发后补充" />
@@ -196,7 +221,7 @@ export default function AccelPage() {
                   <div className="col-span-2 rounded-lg border border-border/60 bg-elevated/40 p-3 text-xs">
                     <div className="mb-1 flex items-center gap-1.5 font-medium text-muted"><KeyRound className="h-3.5 w-3.5" /> CPE 密钥（已生成）</div>
                     <div className="font-mono break-all text-foreground/80">公钥 {cpePub}</div>
-                    <div className="mt-1 font-mono break-all text-muted">私钥 {cpePriv.slice(0, 16)}…（下发时写入设备）</div>
+                    <div className="mt-1 font-mono break-all text-muted">私钥 {cpePriv.slice(0, 16)}…（下发时写入 CPE）</div>
                   </div>
                 )}
               </div>
@@ -215,11 +240,12 @@ export default function AccelPage() {
           <div className="flex gap-2 pt-1">
             <button onClick={() => run(true)} disabled={busy}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary disabled:opacity-60">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} 预览完整配置
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} 预览双侧配置
             </button>
             <button onClick={() => run(false)} disabled={busy}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-60">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} 下发到 CPE
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {needsPop ? "双向下发 CPE + POP" : "下发到 CPE"}
             </button>
           </div>
           {error && <p className="text-sm text-danger">{error}</p>}
@@ -229,35 +255,68 @@ export default function AccelPage() {
           <CardHeader
             title="生成的 RouterOS 配置"
             subtitle={cpe && pop && needsPop ? `${cpe.name} ⇄ ${pop.name}` : cpe ? cpe.name : "选择设备后生成"}
-            action={result?.plan ? <Badge tone={riskTone[result.plan.aggregate_risk] ?? "neutral"}>风险 {result.plan.aggregate_risk}</Badge> : undefined}
+            action={previewPlan ? <Badge tone={riskTone[previewPlan.aggregate_risk] ?? "neutral"}>风险 {previewPlan.aggregate_risk}</Badge> : undefined}
           />
-          {result?.result && (
-            <div className={`mb-3 rounded-lg border p-3 text-sm ${result.result.status === "committed" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
-              下发结果：{result.result.status}{result.result.reason ? ` · ${result.result.reason}` : ""}
+          {needsPop && (
+            <div className="mb-3 flex gap-2">
+              <SideTab active={previewSide === "cpe"} onClick={() => setPreviewSide("cpe")} label={`CPE · ${cpe?.name ?? "—"}`} />
+              <SideTab active={previewSide === "pop"} onClick={() => setPreviewSide("pop")} label={`POP · ${pop?.name ?? "—"}`} />
+            </div>
+          )}
+          {result?.deploy && (
+            <div className="mb-3 space-y-2 text-sm">
+              {needsPop && (
+                <DeployStatus label="POP" res={result.deploy.pop_result} />
+              )}
+              <DeployStatus label="CPE" res={result.deploy.cpe_result} />
             </div>
           )}
           {result?.error && <p className="mb-2 text-sm text-danger">{result.error}</p>}
-          {result?.desired ? (
-            <pre className="max-h-[520px] overflow-auto rounded-lg border border-border bg-elevated/50 p-3 text-xs leading-relaxed">
-              {result.desired.statements.map((st) => (
-                <div key={st.path + st.key} className="mb-2">
-                  <span className="text-primary">{st.path}</span> <span className="text-muted">{st.key}</span>
-                  {Object.entries(st.attributes).map(([k, v]) => (
-                    <div key={k} className="pl-4 text-foreground/80">
-                      {k} = {k === "private-key" ? `${String(v).slice(0, 12)}…` : v}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </pre>
+          {previewDesired ? (
+            <ConfigPreview state={previewDesired} />
           ) : (
             <p className="py-16 text-center text-sm text-muted">
-              {needsPop ? "选择 CPE 与 POP 后，点「生成 WG 协商参数」再预览" : "选择 CPE 后点「预览完整配置」"}
+              {needsPop ? "选择 CPE 与 POP 后，点「生成 WG 协商参数」再预览" : "选择 CPE 后点「预览双侧配置」"}
             </p>
           )}
         </Card>
       </div>
     </div>
+  );
+}
+
+function SideTab({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button onClick={onClick}
+      className={`rounded-md border px-2.5 py-1 text-xs ${active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted hover:border-primary/50"}`}>
+      {label}
+    </button>
+  );
+}
+
+function DeployStatus({ label, res }: { label: string; res: { status: string; reason?: string } }) {
+  const ok = res.status === "committed" || res.status === "skipped";
+  return (
+    <div className={`rounded-lg border p-2 ${ok ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
+      {label}：{res.status}{res.reason ? ` · ${res.reason}` : ""}
+    </div>
+  );
+}
+
+function ConfigPreview({ state }: { state: ConfigState }) {
+  return (
+    <pre className="max-h-[520px] overflow-auto rounded-lg border border-border bg-elevated/50 p-3 text-xs leading-relaxed">
+      {state.statements.map((st) => (
+        <div key={st.path + st.key} className="mb-2">
+          <span className="text-primary">{st.path}</span> <span className="text-muted">{st.key}</span>
+          {Object.entries(st.attributes).map(([k, v]) => (
+            <div key={k} className="pl-4 text-foreground/80">
+              {k} = {k === "private-key" ? `${String(v).slice(0, 12)}…` : v}
+            </div>
+          ))}
+        </div>
+      ))}
+    </pre>
   );
 }
 

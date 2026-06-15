@@ -23,6 +23,9 @@ func TestPopPeerOf(t *testing.T) {
 	if got := PopPeerOf("100.64.0.2/30"); got != "100.64.0.1" {
 		t.Fatalf("got %s", got)
 	}
+	if got := PopPeerOf("100.64.88.118/30"); got != "100.64.88.117" {
+		t.Fatalf("aligned /30 got %s", got)
+	}
 }
 
 func TestTunnelNameForPOP(t *testing.T) {

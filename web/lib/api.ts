@@ -250,6 +250,15 @@ export async function previewAccel(profile: Record<string, unknown>, token?: str
   return env.data;
 }
 
+export interface ConfigState {
+  statements: Array<{ path: string; key: string; attributes: Record<string, string> }>;
+}
+
+export interface ConfigPlan {
+  changes: Array<{ type: string; path: string; key: string; risk: string }>;
+  aggregate_risk: string;
+}
+
 export interface AccelProposal {
   tunnel: {
     name: string;
@@ -272,8 +281,75 @@ export interface AccelProposal {
 
 export interface AccelProposeResult {
   proposal: AccelProposal;
-  desired: { statements: Array<{ path: string; key: string; attributes: Record<string, string> }> };
-  plan: { changes: Array<{ type: string; path: string; key: string; risk: string }>; aggregate_risk: string };
+  fabric?: FabricPlan;
+  desired: ConfigState;
+  plan: ConfigPlan;
+  cpe_desired?: ConfigState;
+  pop_desired?: ConfigState;
+  cpe_plan?: ConfigPlan;
+  pop_plan?: ConfigPlan;
+}
+
+export interface FabricLink {
+  listen_port: number;
+  cpe_interface: string;
+  pop_interface: string;
+  cpe_overlay: string;
+  pop_overlay: string;
+  pop_gateway: string;
+  cpe_private_key: string;
+  cpe_public_key: string;
+  pop_private_key: string;
+  pop_public_key: string;
+  cpe_endpoint_host: string;
+  pop_endpoint_host: string;
+  pop_public_key_hint?: string;
+}
+
+export interface FabricPlan {
+  link: FabricLink;
+  accel: Record<string, unknown>;
+  cpe_desired: ConfigState;
+  pop_desired: ConfigState;
+  cpe_plan: ConfigPlan;
+  pop_plan: ConfigPlan;
+}
+
+export interface FabricDeployResult {
+  dry_run?: boolean;
+  fabric?: FabricPlan;
+  proposal?: AccelProposal;
+  cpe_desired?: ConfigState;
+  pop_desired?: ConfigState;
+  cpe_plan?: ConfigPlan;
+  pop_plan?: ConfigPlan;
+  deploy?: {
+    pop_result: { status: string; rolled_back?: boolean; reason?: string };
+    pop_plan: ConfigPlan;
+    cpe_result: { status: string; rolled_back?: boolean; reason?: string };
+    cpe_plan: ConfigPlan;
+    error?: string;
+  };
+  error?: string;
+}
+
+export async function deployFabric(
+  body: {
+    cpe_device_id: string;
+    pop_device_id: string;
+    mode: string;
+    local_wan_gateway?: string;
+    cpe_overlay?: string;
+    pop_public_key?: string;
+    cpe_public_key?: string;
+    overlay_routes?: string[];
+    dry_run?: boolean;
+    confirm_timeout_sec?: number;
+  },
+  token?: string,
+): Promise<FabricDeployResult> {
+  const env = await request<FabricDeployResult>("POST", "/api/v1/fabric/deploy", { token, body });
+  return env.data;
 }
 
 export async function proposeAccel(
@@ -364,8 +440,8 @@ export interface Uplink {
 
 export interface OrchestrateResult {
   dry_run?: boolean;
-  desired?: { statements: Array<{ path: string; key: string; attributes: Record<string, string> }> };
-  plan?: { changes: Array<{ type: string; path: string; key: string; risk: string }>; aggregate_risk: string };
+  desired?: ConfigState;
+  plan?: ConfigPlan;
   result?: { status: string; rolled_back?: boolean; reason?: string };
   error?: string;
 }

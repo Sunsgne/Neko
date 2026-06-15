@@ -48,7 +48,8 @@
 | POST | `/api/v1/devices/{id}/orchestrate` | 站点编排：链路选择(failover/ECMP)+加速 合成配置，`dry_run` 预览或一键下发 |
 | GET | `/api/v1/accel/modes` | 加速业务模式列表（含海外直连 overseas_direct） |
 | POST | `/api/v1/accel/preview` | 生成加速模式对应的 RouterOS 配置预览 |
-| POST | `/api/v1/accel/propose` | CPE→POP 加速：自动生成 WG 密钥/overlay 地址/隧道参数 + 加速配置预览 |
+| POST | `/api/v1/accel/propose` | CPE→POP 加速：自动生成 WG 密钥/overlay 地址/隧道参数 + CPE/POP 双侧配置预览 |
+| POST | `/api/v1/fabric/deploy` | 生产级双向下发：POP 先、CPE 后，WireGuard 隧道 + 加速/组网路由，使用托管凭据。`dry_run` 预览 |
 | GET | `/api/v1/links` | 监控链路列表（设备实测的延迟/抖动/丢包/评分） |
 | POST | `/api/v1/links` | 新增监控链路 `{device_id, name, kind, isp, role, target}` |
 | DELETE | `/api/v1/links/{id}` | 删除监控链路 |

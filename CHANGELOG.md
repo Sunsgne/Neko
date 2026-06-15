@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- **生产级 CPE↔POP 双向下发(fabric deploy)**：`routing.BuildFabricPlan` 生成双侧 WireGuard 隧道 + 加速/组网配置；`POST /api/v1/fabric/deploy` 使用托管凭据先下发 POP、再下发 CPE；修复 `/30` overlay 网关计算(如 `100.64.88.118/30` → `100.64.88.117`)；加速页与站点编排页支持 CPE/POP 双侧预览与「双向下发」,移除 `window.prompt` 手填凭据。
+
 ### Changed
 - **Docker 镜像版本升级**：`docker-compose.yml` 基础镜像更新 — Redis `7.4-alpine`、NATS `2.12-alpine`、VictoriaMetrics `v1.136.11`、OTel Collector `0.154.0`（自 `0.96.0`）。
 - **远程 Docker 升级**：新增 `scripts/update-deploy.sh` 与 `make deploy-update`（git pull → compose pull → rebuild → 健康检查）；`deploy-ubuntu.sh` 首次/重复部署前自动拉取最新 main。
