@@ -27,6 +27,8 @@ type MeshSiteInput struct {
 	PopDeviceID string   `json:"pop_device_id"`
 	Prefixes    []string `json:"prefixes"`
 	CpeOverlay  string   `json:"cpe_overlay,omitempty"`
+	RateLimit   string   `json:"rate_limit,omitempty"`  // e.g. 10M — applied per site on deploy
+	RateTarget  string   `json:"rate_target,omitempty"` // optional override; defaults to prefixes
 }
 
 // MeshPlanInput is the full mesh / transit fabric request.

@@ -6,6 +6,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/accel"
 	"github.com/neko/sdwan/backend/internal/configengine"
 	"github.com/neko/sdwan/backend/internal/linkpolicy"
+	"github.com/neko/sdwan/backend/internal/qos"
 	"github.com/neko/sdwan/backend/internal/routeros"
 	"github.com/neko/sdwan/backend/internal/routing"
 )
@@ -23,6 +24,9 @@ type orchestrateRequest struct {
 	Accel *accel.Profile `json:"accel,omitempty"`
 	// LinkPolicy is the optional local multi-WAN selection (advanced).
 	LinkPolicy *linkpolicy.Policy `json:"link_policy,omitempty"`
+	QoSRules   []qos.Rule         `json:"qos_rules,omitempty"`
+	RateLimit  string             `json:"rate_limit,omitempty"`
+	RateTarget string             `json:"rate_target,omitempty"`
 	// DryRun=true returns the generated config + plan without touching the
 	// device (preview). Otherwise the config is pushed over RouterOS REST.
 	DryRun         bool   `json:"dry_run"`
@@ -79,6 +83,24 @@ func (s *Server) handleOrchestrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	desired := configengine.Merge(states...)
+
+	qosRules := req.QoSRules
+	if req.RateLimit != "" {
+		auto, err := qos.RulesForSite(dev.Name, req.OverlayRoutes, req.RateLimit, req.RateTarget)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_qos", err.Error())
+			return
+		}
+		qosRules = append(qosRules, auto...)
+	}
+	if len(qosRules) > 0 {
+		var err error
+		desired, err = qos.MergeState(desired, qosRules)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_qos", err.Error())
+			return
+		}
+	}
 
 	// Preview: diff against an empty baseline (the device's running config is
 	// only fetched when actually delivering).

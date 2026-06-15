@@ -5,21 +5,25 @@ import (
 
 	"github.com/neko/sdwan/backend/internal/accel"
 	"github.com/neko/sdwan/backend/internal/configengine"
+	"github.com/neko/sdwan/backend/internal/qos"
 	"github.com/neko/sdwan/backend/internal/routing"
 )
 
 type fabricDeployRequest struct {
-	CpeDeviceID     string   `json:"cpe_device_id"`
-	PopDeviceID     string   `json:"pop_device_id"`
-	Mode            string   `json:"mode"`
-	LocalWANGateway string   `json:"local_wan_gateway,omitempty"`
-	CpeOverlay      string   `json:"cpe_overlay,omitempty"`
-	PopPublicKey    string   `json:"pop_public_key,omitempty"`
-	CpePublicKey    string   `json:"cpe_public_key,omitempty"`
-	OverlayRoutes   []string `json:"overlay_routes,omitempty"`
-	DryRun          bool     `json:"dry_run"`
-	ConfirmTimeout  int      `json:"confirm_timeout_sec"`
-	MaxRisk         string   `json:"max_risk"`
+	CpeDeviceID     string     `json:"cpe_device_id"`
+	PopDeviceID     string     `json:"pop_device_id"`
+	Mode            string     `json:"mode"`
+	LocalWANGateway string     `json:"local_wan_gateway,omitempty"`
+	CpeOverlay      string     `json:"cpe_overlay,omitempty"`
+	PopPublicKey    string     `json:"pop_public_key,omitempty"`
+	CpePublicKey    string     `json:"cpe_public_key,omitempty"`
+	OverlayRoutes   []string   `json:"overlay_routes,omitempty"`
+	QoSRules        []qos.Rule `json:"qos_rules,omitempty"`
+	RateLimit       string     `json:"rate_limit,omitempty"`
+	RateTarget      string     `json:"rate_target,omitempty"`
+	DryRun          bool       `json:"dry_run"`
+	ConfirmTimeout  int        `json:"confirm_timeout_sec"`
+	MaxRisk         string     `json:"max_risk"`
 }
 
 // handleFabricDeploy generates a bilateral CPE↔POP WireGuard + acceleration
@@ -72,12 +76,32 @@ func (s *Server) handleFabricDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 	proposal := routing.FabricToProposal(plan)
 
+	cpeDesired := plan.CPEDesired
+	qosRules := req.QoSRules
+	if req.RateLimit != "" {
+		auto, err := qos.RulesForSite(cpe.Name, req.OverlayRoutes, req.RateLimit, req.RateTarget)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_qos", err.Error())
+			return
+		}
+		qosRules = append(qosRules, auto...)
+	}
+	if len(qosRules) > 0 {
+		var err error
+		cpeDesired, err = qos.MergeState(cpeDesired, qosRules)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid_qos", err.Error())
+			return
+		}
+		plan.CPEPlan = configengine.ComputeDiff(configengine.State{}, cpeDesired, configengine.RiskOptions{})
+	}
+
 	if req.DryRun {
 		respondData(w, http.StatusOK, map[string]any{
 			"dry_run":     true,
 			"fabric":      plan,
 			"proposal":    proposal,
-			"cpe_desired": plan.CPEDesired,
+			"cpe_desired": cpeDesired,
 			"pop_desired": plan.POPDesired,
 			"cpe_plan":    plan.CPEPlan,
 			"pop_plan":    plan.POPPlan,
@@ -89,11 +113,11 @@ func (s *Server) handleFabricDeploy(w http.ResponseWriter, r *http.Request) {
 	if req.MaxRisk != "" {
 		opts.MaxRisk = configengine.Risk(req.MaxRisk)
 	}
-	result, err := s.inventory.FabricDeploy(r.Context(), tenant, cpe.ID, pop.ID, plan.CPEDesired, plan.POPDesired, opts)
+	result, err := s.inventory.FabricDeploy(r.Context(), tenant, cpe.ID, pop.ID, cpeDesired, plan.POPDesired, opts)
 	resp := map[string]any{
 		"fabric":      plan,
 		"proposal":    proposal,
-		"cpe_desired": plan.CPEDesired,
+		"cpe_desired": cpeDesired,
 		"pop_desired": plan.POPDesired,
 		"deploy":      result,
 	}

@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { hostFromMgmt, popPeerOf, tunnelNameForPop } from "@/lib/tunnel";
 import { currentToken } from "@/lib/session";
+import { RateLimitSection, defaultRateLimit, rateLimitPayload, type RateLimitValue } from "@/components/rate-limit-fields";
 
 const MODES = [
   { id: "overseas_direct", title: "海外运营（直连）", desc: "全量流量经 POP 出口直连，不做分流" },
@@ -41,6 +42,7 @@ export default function AccelPage() {
   const [tunnel, setTunnel] = React.useState("");
   const [popEndpoint, setPopEndpoint] = React.useState("");
   const [previewSide, setPreviewSide] = React.useState<PreviewSide>("cpe");
+  const [rateLimit, setRateLimit] = React.useState<RateLimitValue>(defaultRateLimit());
 
   const [proposal, setProposal] = React.useState<AccelProposal | null>(null);
   const [result, setResult] = React.useState<FabricDeployResult | null>(null);
@@ -109,6 +111,7 @@ export default function AccelPage() {
       cpe_public_key: cpePub || undefined,
       dry_run: dryRun,
       confirm_timeout_sec: 90,
+      ...rateLimitPayload(rateLimit),
     };
   }
 
@@ -161,6 +164,7 @@ export default function AccelPage() {
           dry_run: dryRun,
           accel: { mode: "domestic_direct", local_wan_gateway: localWan, domestic_dns: ["223.5.5.5", "114.114.114.114"] },
           confirm_timeout_sec: 90,
+          ...rateLimitPayload(rateLimit),
         }, currentToken());
         setResult({
           dry_run: dryRun,
@@ -275,6 +279,8 @@ export default function AccelPage() {
           {(isChinaSplit || mode === "domestic_direct" || mode === "smart_split") && (
             <Field label="本地 WAN 网关（国内直连出口）" value={localWan} onChange={setLocalWan} mono />
           )}
+
+          <RateLimitSection value={rateLimit} onChange={setRateLimit} targetHint="留空则对隧道/加速流量不限定 target" />
 
           {isChinaSplit && (
             <div className="rounded-lg border border-border bg-elevated/40 p-3 text-sm">

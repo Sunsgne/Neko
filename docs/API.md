@@ -47,13 +47,13 @@
 | GET | `/api/v1/devices/{id}/snapshots/{snapshotId}` | 查看单个配置快照内容（返回 `state.statements` 完整配置项） |
 | POST | `/api/v1/devices/{id}/snapshots/{snapshotId}/restore` | 将设备配置还原到指定快照（托管凭据，diff→apply） |
 | POST | `/api/v1/devices/{id}/snapshots/{snapshotId}/apply` | 下发编辑后的配置 `{state:{statements:[]}}` 到设备 |
-| POST | `/api/v1/devices/{id}/orchestrate` | 站点编排：链路选择(failover/ECMP)+加速 合成配置，`dry_run` 预览或一键下发 |
+| POST | `/api/v1/devices/{id}/orchestrate` | 站点编排：链路选择(failover/ECMP)+加速 合成配置；可选 `rate_limit`/`rate_target` 随下发写入 Simple Queue。`dry_run` 预览或一键下发 |
 | GET | `/api/v1/accel/modes` | 加速业务模式列表（含海外直连 overseas_direct） |
 | POST | `/api/v1/accel/preview` | 生成加速模式对应的 RouterOS 配置预览 |
 | POST | `/api/v1/accel/propose` | CPE→POP 加速：自动生成 WG 密钥/overlay 地址/隧道参数 + CPE/POP 双侧配置预览 |
-| POST | `/api/v1/fabric/deploy` | 生产级双向下发：POP 先、CPE 后，WireGuard 隧道 + 加速/组网路由，使用托管凭据。`dry_run` 预览 |
-| POST | `/api/v1/mesh/deploy` | 多站点组网：`topology`=`hub_spoke`\|`transit`\|`full_mesh`，`sites[]`（CPE+POP+prefixes），`backbone_path`（transit/full_mesh），BGP AS + 骨干间 WG/iBGP |
-| GET | `/api/v1/qos/policies` | 限速策略池（RouterOS Simple Queue 模板） |
+| POST | `/api/v1/fabric/deploy` | 生产级双向下发：POP 先、CPE 后，WireGuard 隧道 + 加速/组网路由；CPE 侧可选 `rate_limit`/`rate_target`。`dry_run` 预览 |
+| POST | `/api/v1/mesh/deploy` | 多站点组网：`topology`=`hub_spoke`\|`transit`\|`full_mesh`，`sites[]`（CPE+POP+prefixes，每站点可选 `rate_limit`/`rate_target`），`backbone_path`（transit/full_mesh），BGP AS + 骨干间 WG/iBGP |
+| GET | `/api/v1/qos/policies` | （可选）限速策略池模板，供 API 集成；控制台在组网/加速下发页内联配置 |
 | POST | `/api/v1/qos/policies` | 添加快限速策略 `{name,target,max_limit,limit_at?,priority?}` |
 | DELETE | `/api/v1/qos/policies/{id}` | 删除限速策略 |
 | POST | `/api/v1/devices/{id}/qos` | 下发 Simple Queue 到设备，`policy_ids` 或内联 `rules`，支持 `dry_run` |

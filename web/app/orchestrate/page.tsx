@@ -37,10 +37,10 @@ const riskTone: Record<string, "success" | "primary" | "warning" | "danger"> = {
   low: "success", medium: "primary", high: "warning", critical: "danger",
 };
 
-type SiteRow = { key: string; cpeId: string; popId: string; prefixes: string };
+type SiteRow = { key: string; cpeId: string; popId: string; prefixes: string; rateLimit: string };
 
 function newSite(): SiteRow {
-  return { key: Math.random().toString(36).slice(2), cpeId: "", popId: "", prefixes: "10.0.0.0/24" };
+  return { key: Math.random().toString(36).slice(2), cpeId: "", popId: "", prefixes: "10.0.0.0/24", rateLimit: "" };
 }
 
 export default function OrchestratePage() {
@@ -85,6 +85,7 @@ export default function OrchestratePage() {
         device_id: s.cpeId,
         pop_device_id: s.popId,
         prefixes: s.prefixes.split(",").map((p) => p.trim()).filter(Boolean),
+        ...(s.rateLimit.trim() ? { rate_limit: s.rateLimit.trim() } : {}),
       }));
   }
 
@@ -161,6 +162,7 @@ export default function OrchestratePage() {
                 <Select label="归属 POP" icon={Server} value={row.popId} onChange={(v) => updateSite(row.key, { popId: v })}
                   options={pops.map((d) => ({ value: d.id, label: `${d.name} · ${d.region || d.role}` }))} />
                 <Field label="内网前缀（逗号分隔）" value={row.prefixes} onChange={(v) => updateSite(row.key, { prefixes: v })} mono />
+                <Field label="限速 max-limit（可选，对该站点前缀）" value={row.rateLimit} onChange={(v) => updateSite(row.key, { rateLimit: v })} mono placeholder="如 10M，留空不限速" />
               </div>
             ))}
             <button onClick={() => setSites((s) => [...s, newSite()])}
@@ -303,11 +305,11 @@ function Select({ label, icon: Icon, value, onChange, options }: {
   );
 }
 
-function Field({ label, value, onChange, mono }: { label: string; value: string; onChange: (v: string) => void; mono?: boolean }) {
+function Field({ label, value, onChange, mono, placeholder }: { label: string; value: string; onChange: (v: string) => void; mono?: boolean; placeholder?: string }) {
   return (
     <div>
       <label className="mb-1 block text-[11px] uppercase tracking-wide text-muted">{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)}
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         className={`w-full rounded-md border border-border bg-elevated px-2 py-1.5 text-sm outline-none focus:border-primary ${mono ? "font-mono" : ""}`} />
     </div>
   );

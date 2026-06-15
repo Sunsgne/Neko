@@ -122,3 +122,67 @@ func firstNonEmpty(a, b string) string {
 	}
 	return b
 }
+
+// RulesForSite builds simple-queue rules for a CPE when rate_limit is set.
+func RulesForSite(cpeName string, prefixes []string, rateLimit, rateTarget string) ([]Rule, error) {
+	rateLimit = strings.TrimSpace(rateLimit)
+	if rateLimit == "" {
+		return nil, nil
+	}
+	if err := ValidateRule(Rule{Name: "check", Target: "0.0.0.0/0", MaxLimit: rateLimit}); err != nil {
+		return nil, err
+	}
+	var targets []string
+	if t := strings.TrimSpace(rateTarget); t != "" {
+		targets = []string{t}
+	} else {
+		targets = append(targets, prefixes...)
+	}
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("限速需要 target 或内网前缀")
+	}
+	base := sanitizeName(cpeName)
+	var rules []Rule
+	for i, t := range targets {
+		name := base
+		if len(targets) > 1 {
+			name = fmt.Sprintf("%s-%d", base, i+1)
+		}
+		rules = append(rules, Rule{
+			Name: name, Target: t, MaxLimit: rateLimit, Priority: 8, Comment: "neko-qos",
+		})
+	}
+	return rules, nil
+}
+
+func sanitizeName(s string) string {
+	var b strings.Builder
+	b.WriteString("neko-")
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else if r == ' ' || r == '_' {
+			b.WriteRune('-')
+		}
+	}
+	out := b.String()
+	if len(out) > 24 {
+		out = out[:24]
+	}
+	if out == "neko-" {
+		return "neko-rate"
+	}
+	return out
+}
+
+// MergeState appends simple-queue statements onto existing desired config.
+func MergeState(base configengine.State, rules []Rule) (configengine.State, error) {
+	if len(rules) == 0 {
+		return base, nil
+	}
+	extra, err := BuildSimpleQueues(rules)
+	if err != nil {
+		return configengine.State{}, err
+	}
+	return configengine.Merge(base, extra), nil
+}

@@ -365,6 +365,8 @@ export async function deployFabric(
     pop_public_key?: string;
     cpe_public_key?: string;
     overlay_routes?: string[];
+    rate_limit?: string;
+    rate_target?: string;
     dry_run?: boolean;
     confirm_timeout_sec?: number;
   },
@@ -381,6 +383,8 @@ export interface MeshSiteInput {
   pop_device_id: string;
   prefixes: string[];
   cpe_overlay?: string;
+  rate_limit?: string;
+  rate_target?: string;
 }
 
 export interface MeshLink {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/neko/sdwan/backend/internal/configengine"
+	"github.com/neko/sdwan/backend/internal/qos"
 	"github.com/neko/sdwan/backend/internal/routing"
 	"github.com/neko/sdwan/backend/internal/store"
 )
@@ -77,6 +78,10 @@ func (s *Server) handleMeshDeploy(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "invalid_profile", err.Error())
+		return
+	}
+	if err := qos.ApplyToMeshPlan(&plan, req.Sites, devices); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid_qos", err.Error())
 		return
 	}
 
