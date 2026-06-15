@@ -116,6 +116,39 @@ func (c *Client) Delete(ctx context.Context, path, id string) error {
 	return err
 }
 
+// RunScript installs a RouterOS script under the given name and executes it
+// once, returning the run output. It is idempotent w.r.t. the script object:
+// any pre-existing script with the same name is removed first. This is how the
+// platform delivers large rule sets (e.g. the chnroutes table) in a single
+// REST round-trip instead of thousands of per-item calls.
+func (c *Client) RunScript(ctx context.Context, name, source string) (string, error) {
+	// Remove any prior script with this name (best-effort).
+	if existing, err := c.List(ctx, "/system/script"); err == nil {
+		for _, s := range existing {
+			if str(s["name"]) == name {
+				if id := str(s[".id"]); id != "" {
+					_ = c.Delete(ctx, "/system/script", id)
+				}
+			}
+		}
+	}
+	if err := c.Create(ctx, "/system/script", map[string]string{
+		"name":                     name,
+		"source":                   source,
+		"dont-require-permissions": "yes",
+		"owner":                    "neko",
+	}); err != nil {
+		return "", fmt.Errorf("install script: %w", err)
+	}
+	// Execute it. RouterOS REST exposes the CLI "run" command at
+	// POST /rest/system/script/run with the script name as "number".
+	data, _, err := c.do(ctx, http.MethodPost, "/system/script/run", map[string]string{"number": name})
+	if err != nil {
+		return string(data), fmt.Errorf("run script: %w", err)
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
 // Status reads live operational metrics (/system/resource + /interface) and
 // returns them as a store.DeviceStatus. Online is set true on success.
 func (c *Client) Status(ctx context.Context) (store.DeviceStatus, error) {

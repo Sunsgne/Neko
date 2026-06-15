@@ -54,6 +54,13 @@
 - [x] T7.1 DNS 服务器池模型 + 健康检查器（Checker：直连各 DNS 解析探针域名，测延迟/正确性，并发 CheckAll）
 - [x] T7.2 地域+运营商调度策略 + ECS（dns.Select 加权评分 + 公共兜底 + 确定性排序）
 - [x] T7.3 下发到 RouterOS（BuildConfig 生成 /ip/dns + 分流 forwarders/static FWD）+ 解析质量可观测（HealthResult 延迟/成功率）
+- [x] T7.4 DoH（DNS over HTTPS）支持：服务器池 kind=udp/doh，下发 use-doh-server+verify-doh-cert
+
+## Epic 11 — 国内外加速（chnroutes 路由表分流）
+- [x] T11.1 chnroutes 包：拉取/解析/缓存 chnroutes2 国内网段表（自定义源 URL）
+- [x] T11.2 accel.BuildChinaSplitScript：国内网段→本地 WAN，海外 0.0.0.0/1+128.0.0.0/1→隧道（幂等 .rsc）
+- [x] T11.3 routeros.Client.RunScript：上千条路由打包为单脚本一次性安装+执行（免登录、免逐条 REST）
+- [x] T11.4 API + 前端「站点编排」国内外分流模式：状态/刷新/预览脚本/一键下发
 
 ## Epic 8 — 链路质量监控、上报与切换
 - [x] T8.1 探测引擎（probe 包：ICMP/TCP/HTTP/HTTPS/DNS，Run 聚合延迟/丢包/抖动）

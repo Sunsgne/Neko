@@ -8,6 +8,7 @@ import (
 	"github.com/neko/sdwan/backend/internal/audit"
 	"github.com/neko/sdwan/backend/internal/auth"
 	"github.com/neko/sdwan/backend/internal/catalog"
+	"github.com/neko/sdwan/backend/internal/chnroutes"
 	"github.com/neko/sdwan/backend/internal/inventory"
 	"github.com/neko/sdwan/backend/internal/metrics"
 	"github.com/neko/sdwan/backend/internal/session"
@@ -31,6 +32,7 @@ type Server struct {
 	vm        *vmetrics.Client
 	idgen     func(string) string
 	metrics   *metrics.Registry
+	chn       *chnroutes.Cache
 	storeKind string
 	version   string
 	auth      auth.Authenticator // nil = auth disabled
@@ -74,6 +76,7 @@ func New(d Deps) *Server {
 		vm:        d.VM,
 		idgen:     d.IDGen,
 		metrics:   m,
+		chn:       chnroutes.NewCache(),
 		storeKind: d.StoreKind,
 		version:   firstNonEmptyStr(d.Version, "dev"),
 		auth:      d.Auth,
@@ -135,6 +138,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/accel/modes", s.handleAccelModes)
 	mux.HandleFunc("POST /api/v1/accel/preview", s.handleAccelPreview)
 	mux.HandleFunc("GET /api/v1/config/sections", s.handleConfigSections)
+
+	// 国内外加速 (chnroutes route-table split): China prefix table + delivery.
+	mux.HandleFunc("GET /api/v1/chnroutes", s.handleChnroutesStatus)
+	mux.HandleFunc("POST /api/v1/chnroutes/refresh", s.handleChnroutesRefresh)
+	mux.HandleFunc("POST /api/v1/devices/{id}/accel/china-split", s.handleChinaSplit)
 
 	// Discovery + batch onboarding.
 	mux.HandleFunc("POST /api/v1/discover", s.handleDiscover)

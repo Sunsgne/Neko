@@ -5,6 +5,12 @@
 ## [Unreleased]
 
 ### Added
+- **国内外加速·路由表分流(chnroutes route-table split)**:
+  - `chnroutes` 包:从 chnroutes2(默认 `misakaio/chnroutes2`)拉取并缓存国内 IPv4 网段表(解析/去重/校验,支持自定义源 URL)。
+  - `accel.BuildChinaSplitScript`:生成 RouterOS `.rsc` 脚本——国内网段(路由表全部条目)走本地 WAN 出口直连,海外 `0.0.0.0/1`+`128.0.0.0/1`(比默认路由更具体,覆盖全网但被国内更具体前缀压制)走 SD-WAN 隧道;脚本幂等(按 neko 注释先清理再下发),支持 `routing-table`/`distance`。
+  - `routeros.Client.RunScript`:把上千条路由打包为单个 `/system/script` 一次性安装并执行(免去逐条 REST,免登录设备)。
+  - API:`GET /chnroutes`(状态)、`POST /chnroutes/refresh`(刷新)、`POST /devices/{id}/accel/china-split`(`dry_run` 预览脚本/否则下发)。
+  - 前端「站点编排」新增**加速·国内外分流(chnroutes)**模式:展示国内路由表条数 + 刷新、填写国内直连出口、预览生成的脚本与条数、一键下发。
 - **真正的设备托管(production device management)**:
   - `secret` 包:AES-256-GCM 对设备凭据做静态加密(密钥来自 `NEKO_SECRET_KEY`,部署脚本生成)。
   - 凭据仓储(memory+pg,复用 `device_credentials` 表)+ 设备实时状态(`status` JSONB,迁移 0005)+ `enrolled` 标记。

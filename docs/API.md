@@ -46,5 +46,8 @@
 | GET | `/api/v1/accel/modes` | 加速业务模式列表（含海外直连 overseas_direct） |
 | POST | `/api/v1/accel/preview` | 生成加速模式对应的 RouterOS 配置预览 |
 | GET | `/api/v1/config/sections` | 平台全功能管理的 RouterOS 配置段目录 |
+| GET | `/api/v1/chnroutes` | 国内路由表(chnroutes2)缓存状态（条数/来源/更新时间） |
+| POST | `/api/v1/chnroutes/refresh` | 刷新国内路由表，可选 `{url}`，默认 chnroutes2 |
+| POST | `/api/v1/devices/{id}/accel/china-split` | 国内外分流下发：国内走路由表本地直连，海外 0.0.0.0/1+128.0.0.0/1 走隧道。`dry_run` 预览生成的 RouterOS 脚本，否则一键安装+执行 |
 
 > 新增端点请同步更新本表与 `web/lib/api.ts` 类型。

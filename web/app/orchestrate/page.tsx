@@ -1,17 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { Workflow, Eye, Send, Loader2, Server, Router as RouterIcon } from "lucide-react";
+import { Workflow, Eye, Send, Loader2, Server, Router as RouterIcon, RefreshCw, ListTree } from "lucide-react";
 import { Card, CardHeader, Badge } from "@/components/ui";
-import { listDevices, orchestrate, type Device, type OrchestrateResult, ApiError } from "@/lib/api";
+import {
+  listDevices, orchestrate, getChnroutes, refreshChnroutes, chinaSplit,
+  type Device, type OrchestrateResult, type ChnroutesStatus, type ChinaSplitResult, ApiError,
+} from "@/lib/api";
 import { currentToken } from "@/lib/session";
 
-type Mode = "mesh" | "overseas_direct" | "smart_split";
+type Mode = "mesh" | "overseas_direct" | "smart_split" | "china_split";
 
 const MODES: { id: Mode; title: string; desc: string }[] = [
   { id: "mesh", title: "组网（站点入网）", desc: "CPE 经隧道接入骨干 POP，打通内网网段" },
   { id: "overseas_direct", title: "加速·海外直连", desc: "全量流量经该 POP 出口直连（不分流）" },
-  { id: "smart_split", title: "加速·智能分流", desc: "海外走 POP 出口，国内本地直连" },
+  { id: "china_split", title: "加速·国内外分流（chnroutes）", desc: "国内走路由表本地直连，海外 0/1+128/1 走隧道" },
+  { id: "smart_split", title: "加速·智能分流（地址组）", desc: "基于地址组标记，海外走 POP 出口" },
 ];
 
 const riskTone: Record<string, "success" | "primary" | "warning" | "danger"> = {
@@ -43,6 +47,9 @@ export default function OrchestratePage() {
   const [localWan, setLocalWan] = React.useState("192.168.1.1");
 
   const [result, setResult] = React.useState<OrchestrateResult | null>(null);
+  const [csResult, setCsResult] = React.useState<ChinaSplitResult | null>(null);
+  const [chn, setChn] = React.useState<ChnroutesStatus | null>(null);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -51,7 +58,18 @@ export default function OrchestratePage() {
       const managed = d.filter((x) => x.trust_state === "managed");
       setDevices(managed);
     }).catch(() => setDevices([]));
+    getChnroutes(currentToken()).then(setChn).catch(() => setChn(null));
   }, []);
+
+  async function doRefreshChn() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      setChn(await refreshChnroutes(undefined, currentToken()));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "刷新国内路由表失败");
+    } finally { setRefreshing(false); }
+  }
 
   const cpes = devices.filter((d) => d.role !== "backbone" && d.role !== "gateway");
   const pops = devices.filter((d) => d.role === "backbone" || d.role === "gateway");
@@ -92,7 +110,7 @@ export default function OrchestratePage() {
   async function run(dryRun: boolean) {
     setError(null);
     if (!cpeId) return setError("请选择接入设备 (CPE)");
-    if (!popId) return setError("请选择接入的骨干 / 出口节点 (POP)");
+    if (mode !== "china_split" && !popId) return setError("请选择接入的骨干 / 出口节点 (POP)");
     let creds: { u: string; p: string } | undefined;
     if (!dryRun) {
       const u = window.prompt("CPE 设备登录用户名（用于下发，不保存）", "admin");
@@ -102,10 +120,23 @@ export default function OrchestratePage() {
     }
     setBusy(true);
     try {
-      setResult(await orchestrate(cpeId, buildBody(dryRun, creds), currentToken()));
+      if (mode === "china_split") {
+        const body: Record<string, unknown> = {
+          dry_run: dryRun,
+          wan_gateway: localWan,
+          overseas_gateway: popPeer,
+        };
+        if (creds) { body.username = creds.u; body.password = creds.p; }
+        setCsResult(await chinaSplit(cpeId, body, currentToken()));
+        setResult(null);
+      } else {
+        setResult(await orchestrate(cpeId, buildBody(dryRun, creds), currentToken()));
+        setCsResult(null);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "请求失败");
       setResult(null);
+      setCsResult(null);
     } finally { setBusy(false); }
   }
 
@@ -154,7 +185,24 @@ export default function OrchestratePage() {
             <div className="col-span-2"><F label="POP WireGuard 公钥（可选）" v={popKey} on={setPopKey} mono placeholder="留空则下发后在 POP 端补充" /></div>
             {mode === "mesh" && <div className="col-span-2"><F label="内网网段（经隧道可达，逗号分隔）" v={internalCidr} on={setInternalCidr} mono /></div>}
             {mode === "smart_split" && <div className="col-span-2"><F label="本地出口网关（国内直连）" v={localWan} on={setLocalWan} mono /></div>}
+            {mode === "china_split" && <div className="col-span-2"><F label="国内直连出口网关 / 接口（WAN）" v={localWan} on={setLocalWan} mono /></div>}
           </div>
+
+          {mode === "china_split" && (
+            <div className="rounded-lg border border-border bg-elevated/40 p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-medium"><ListTree className="h-4 w-4 text-primary" /> 国内路由表 (chnroutes)</div>
+                <button onClick={doRefreshChn} disabled={refreshing} className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:border-primary disabled:opacity-60">
+                  {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} 刷新
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                {chn?.loaded
+                  ? `已加载 ${chn.count} 条国内网段 · 海外经 ${popPeer} 走 0.0.0.0/1 + 128.0.0.0/1`
+                  : "尚未加载，下发或点「刷新」将从 chnroutes2 拉取国内网段"}
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <button onClick={() => run(true)} disabled={busy} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary disabled:opacity-60">
@@ -173,7 +221,24 @@ export default function OrchestratePage() {
             subtitle={cpe && pop ? `${cpe.name} ⇄ ${pop.name}（${MODES.find((m) => m.id === mode)?.title}）` : "选择 CPE 与 POP 后预览"}
             action={result?.plan ? <Badge tone={riskTone[result.plan.aggregate_risk] ?? "neutral"}>风险 {result.plan.aggregate_risk}</Badge> : undefined}
           />
-          {!result && <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted"><Workflow className="h-6 w-6 text-primary" />点击「预览」生成 RouterOS 配置</div>}
+          {!result && !csResult && <div className="flex flex-col items-center gap-2 py-16 text-center text-sm text-muted"><Workflow className="h-6 w-6 text-primary" />点击「预览」生成 RouterOS 配置</div>}
+          {csResult && (
+            <div className="space-y-3">
+              {csResult.status && (
+                <div className={`rounded-lg border p-3 text-sm ${csResult.status === "delivered" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
+                  下发结果：{csResult.status}{csResult.error ? ` · ${csResult.error}` : ""}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge tone="primary">总路由 {csResult.route_count ?? 0}</Badge>
+                <Badge tone="success">国内 {csResult.domestic_count ?? 0}</Badge>
+                <Badge tone="neutral">海外 {(csResult.overseas_halves ?? []).join(" / ")}</Badge>
+              </div>
+              {csResult.script && (
+                <pre className="max-h-[420px] overflow-auto rounded-lg border border-border bg-elevated/50 p-3 text-xs leading-relaxed">{csResult.script}</pre>
+              )}
+            </div>
+          )}
           {result?.result && (
             <div className={`mb-3 rounded-lg border p-3 text-sm ${result.result.status === "committed" ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
               下发结果：{result.result.status}{result.result.reason ? ` · ${result.result.reason}` : ""}

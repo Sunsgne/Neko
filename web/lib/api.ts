@@ -292,6 +292,43 @@ export async function orchestrate(
   return env.data;
 }
 
+export interface ChnroutesStatus {
+  url: string;
+  count: number;
+  updated_at?: string;
+  loaded: boolean;
+}
+
+export async function getChnroutes(token?: string): Promise<ChnroutesStatus> {
+  const env = await request<ChnroutesStatus>("GET", "/api/v1/chnroutes", { token });
+  return env.data;
+}
+
+export async function refreshChnroutes(url?: string, token?: string): Promise<ChnroutesStatus> {
+  const env = await request<ChnroutesStatus>("POST", "/api/v1/chnroutes/refresh", { token, body: { url } });
+  return env.data;
+}
+
+export interface ChinaSplitResult {
+  dry_run?: boolean;
+  script?: string;
+  route_count?: number;
+  domestic_count?: number;
+  overseas_halves?: string[];
+  status?: string;
+  output?: string;
+  error?: string;
+}
+
+export async function chinaSplit(
+  deviceId: string,
+  body: Record<string, unknown>,
+  token?: string,
+): Promise<ChinaSplitResult> {
+  const env = await request<ChinaSplitResult>("POST", `/api/v1/devices/${deviceId}/accel/china-split`, { token, body });
+  return env.data;
+}
+
 export async function getDevice(id: string, token?: string): Promise<Device> {
   const env = await request<Device>("GET", `/api/v1/devices/${id}`, { token });
   return env.data;
